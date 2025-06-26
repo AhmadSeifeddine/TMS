@@ -44,6 +44,11 @@ class Task extends Model
         return $this->hasMany(TaskComment::class);
     }
 
+    public function taskComments()
+    {
+        return $this->hasMany(TaskComment::class);
+    }
+
     // Helper methods for policy integration
 
     /**

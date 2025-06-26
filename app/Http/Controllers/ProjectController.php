@@ -200,15 +200,65 @@ class ProjectController extends Controller
             return redirect()->route('projects.index');
         }
 
+        // Load project with all necessary relationships for the detail page
+        $project->load([
+            'creator:id,name,email,role',
+            'users:id,name,email,role',
+            'tasks' => function ($query) {
+                $query->with([
+                    'assignedUser:id,name,email,role',
+                    'creator:id,name,email,role',
+                    'taskComments' => function ($commentQuery) {
+                        $commentQuery->with('creator:id,name,email,role')
+                                   ->latest()
+                                   ->take(5); // Load latest 5 comments per task
+                    }
+                ])->orderBy('created_at', 'desc');
+            }
+        ]);
+
+        // Organize tasks by status for timeline view
+        $tasksByStatus = [
+            'pending' => $project->tasks->where('status', 'pending'),
+            'in_progress' => $project->tasks->where('status', 'in_progress'),
+            'completed' => $project->tasks->where('status', 'completed')
+        ];
+
+        // Calculate project statistics
+        $totalTasks = $project->tasks->count();
+        $completedTasks = $project->tasks->where('status', 'completed')->count();
+        $progressPercentage = $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100) : 0;
+
+        // Get overdue tasks
+        $overdueTasks = $project->tasks->filter(function ($task) {
+            return $task->due_date &&
+                   \Carbon\Carbon::parse($task->due_date)->isPast() &&
+                   $task->status !== 'completed';
+        });
+
         if (request()->expectsJson()) {
             return response()->json([
                 'success' => true,
-                'project' => $project->load(['creator', 'users', 'tasks'])
+                'project' => $project,
+                'tasksByStatus' => $tasksByStatus,
+                'statistics' => [
+                    'total_tasks' => $totalTasks,
+                    'completed_tasks' => $completedTasks,
+                    'progress_percentage' => $progressPercentage,
+                    'overdue_tasks' => $overdueTasks->count()
+                ]
             ]);
         }
 
-        // For non-AJAX requests, redirect to projects index
-        return redirect()->route('projects.index');
+        return view('dashboard.projects.show', [
+            'project' => $project,
+            'tasksByStatus' => $tasksByStatus,
+            'totalTasks' => $totalTasks,
+            'completedTasks' => $completedTasks,
+            'progressPercentage' => $progressPercentage,
+            'overdueTasks' => $overdueTasks,
+            'user' => request()->user()
+        ]);
     }
 
     /**
@@ -370,30 +420,30 @@ class ProjectController extends Controller
             $cacheKey = "project_team_data_{$project->id}";
 
             $teamData = Cache::remember($cacheKey, 300, function () use ($project) {
-                // Optimized query to get current team members
+                // Get current team members (both creators and assignees)
                 $currentMembers = $project->users()
-                    ->where('role', 'assignee')
+                    ->whereIn('role', ['creator', 'assignee'])
                     ->select('users.id', 'users.name', 'users.email', 'users.role')
                     ->get();
 
-                // Get available assignees using a single optimized query
+                // Get available users that can be assigned (creators and assignees)
                 $assignedUserIds = $currentMembers->pluck('id')->toArray();
-                $availableAssignees = User::where('role', 'assignee')
+                $availableUsers = User::whereIn('role', ['creator', 'assignee'])
                     ->whereNotIn('id', $assignedUserIds)
-                    ->select('id', 'name', 'email')
+                    ->select('id', 'name', 'email', 'role')
                     ->orderBy('name')
                     ->get();
 
                 return [
                     'currentMembers' => $currentMembers,
-                    'availableAssignees' => $availableAssignees
+                    'availableUsers' => $availableUsers
                 ];
             });
 
             return response()->json([
                 'success' => true,
                 'currentMembers' => $teamData['currentMembers'],
-                'availableAssignees' => $teamData['availableAssignees']
+                'availableUsers' => $teamData['availableUsers']
             ]);
 
         } catch (\Exception $e) {
@@ -406,7 +456,7 @@ class ProjectController extends Controller
     }
 
     /**
-     * Assign members to a project - Optimized
+     * Assign members to a project - Updated to support creators and assignees
      */
     public function assignMembers(Request $request, Project $project)
     {
@@ -426,22 +476,22 @@ class ProjectController extends Controller
         ]);
 
         try {
-            // Optimized query to verify all users are assignees
-            $assignees = User::whereIn('id', $validated['assignee_ids'])
-                ->where('role', 'assignee')
+            // Verify all users are either creators or assignees
+            $validUsers = User::whereIn('id', $validated['assignee_ids'])
+                ->whereIn('role', ['creator', 'assignee'])
                 ->pluck('id')
                 ->toArray();
 
-            if (count($assignees) !== count($validated['assignee_ids'])) {
+            if (count($validUsers) !== count($validated['assignee_ids'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Some selected users are not valid assignees.'
+                    'message' => 'Some selected users cannot be assigned to projects. Only creators and assignees can be project members.'
                 ], 400);
             }
 
             // Optimized bulk assignment using sync with existing IDs
             $existingIds = $project->users()->pluck('user_id')->toArray();
-            $newIds = array_diff($assignees, $existingIds);
+            $newIds = array_diff($validUsers, $existingIds);
 
             if (!empty($newIds)) {
                 $project->users()->attach($newIds);

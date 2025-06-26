@@ -29,7 +29,6 @@ return new class extends Migration
             // Index for search functionality and role-based queries
             $table->index('name', 'users_name_index');
             $table->index('email', 'users_email_index');
-
         });
 
         Schema::table('project_user', function (Blueprint $table) {
@@ -71,8 +70,6 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->dropIndex('users_name_index');
             $table->dropIndex('users_email_index');
-            $table->dropIndex('users_role_index');
-            $table->dropIndex('users_role_name_index');
         });
 
         Schema::table('project_user', function (Blueprint $table) {

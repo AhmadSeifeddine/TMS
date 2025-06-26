@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -24,6 +25,9 @@ Route::middleware('auth')->group(function () {
     Route::get('projects/{project}/team-data', [ProjectController::class, 'getTeamData'])->name('projects.team-data');
     Route::post('projects/{project}/assign-members', [ProjectController::class, 'assignMembers'])->name('projects.assign-members');
     Route::delete('projects/{project}/remove-member', [ProjectController::class, 'removeMember'])->name('projects.remove-member');
+
+    // Task routes
+    Route::get('tasks/{task}/comments', [TaskController::class, 'getComments'])->name('tasks.comments');
 });
 
 require __DIR__.'/auth.php';

@@ -14,8 +14,7 @@ class TaskCommentSeeder extends Seeder
      */
     public function run(): void
     {
-        $tasks = Task::all();
-        $users = User::all();
+        $tasks = Task::with(['project.users', 'project.creator'])->get(); // Eager load project users
 
         $comments = [
             "Great progress on this task! The implementation looks solid.",
@@ -56,6 +55,19 @@ class TaskCommentSeeder extends Seeder
         ];
 
         foreach ($tasks as $task) {
+            // Get users who can comment on this task (project members + project creator)
+            $projectUsers = $task->project->users; // Users assigned to the project
+            $projectCreator = $task->project->creator; // Project creator
+
+            // Combine project users and creator, ensuring no duplicates
+            $eligibleCommenters = $projectUsers->push($projectCreator)->unique('id');
+
+            // Skip if no eligible commenters
+            if ($eligibleCommenters->isEmpty()) {
+                $this->command->warn("Task '{$task->title}' has no eligible commenters. Skipping comments.");
+                continue;
+            }
+
             // Add 1-5 comments per task randomly
             $commentCount = rand(1, 5);
 
@@ -63,12 +75,12 @@ class TaskCommentSeeder extends Seeder
                 TaskComment::create([
                     'task_id' => $task->id,
                     'comment' => $comments[array_rand($comments)],
-                    'created_by' => $users->random()->id,
+                    'created_by' => $eligibleCommenters->random()->id, // Only project members can comment
                     'created_at' => now()->subDays(rand(0, 30))->subHours(rand(0, 23)),
                 ]);
             }
         }
 
-        $this->command->info('Created comments for all tasks.');
+        $this->command->info('Created comments for all tasks (only from project members).');
     }
 }

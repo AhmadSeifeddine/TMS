@@ -15,17 +15,17 @@ class TaskSeeder extends Seeder
      */
     public function run(): void
     {
-        $projects = Project::all();
+        $projects = Project::with('users')->get(); // Eager load project users - use get() not all()
         $creators = User::whereIn('role', ['admin', 'creator'])->get();
-        $assignees = User::whereIn('role', ['assignee', 'member'])->get();
 
         foreach ($projects as $project) {
             // Get users assigned to this project
             $projectUsers = $project->users;
 
-            // If no users assigned to project, use all assignees
+            // If no users assigned to project, skip creating tasks for this project
             if ($projectUsers->isEmpty()) {
-                $projectUsers = $assignees;
+                $this->command->warn("Project '{$project->name}' has no assigned users. Skipping task creation.");
+                continue;
             }
 
             // Create 5-8 tasks per project
@@ -34,6 +34,9 @@ class TaskSeeder extends Seeder
             for ($i = 1; $i <= $taskCount; $i++) {
                 $taskData = $this->getTaskData($i, $project->name);
 
+                // Only assign tasks to users who are assigned to this project
+                $assignedUser = $projectUsers->random();
+
                 Task::create([
                     'title' => $taskData['title'],
                     'description' => $taskData['description'],
@@ -41,13 +44,13 @@ class TaskSeeder extends Seeder
                     'priority' => $taskData['priority'],
                     'due_date' => $taskData['due_date'],
                     'project_id' => $project->id,
-                    'assigned_to' => $projectUsers->random()->id,
+                    'assigned_to' => $assignedUser->id, // Only assign to project members
                     'created_by' => $creators->random()->id,
                 ]);
             }
         }
 
-        $this->command->info('Created tasks for all projects.');
+        $this->command->info('Created tasks for all projects (assigned only to project members).');
     }
 
     private function getTaskData($index, $projectName): array

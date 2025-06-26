@@ -39,14 +39,14 @@
                             type="text"
                             id="assigneeSearch"
                             class="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                            placeholder="Search assignees by name or email..."
+                            placeholder="Search users by name or email..."
                         >
                     </div>
 
-                    <!-- Available Assignees -->
+                    <!-- Available Users -->
                     <div class="border border-gray-200 dark:border-gray-600 rounded-md max-h-60 overflow-y-auto">
-                        <div id="availableAssignees" class="divide-y divide-gray-200 dark:divide-gray-600">
-                            <!-- Available assignees will be loaded here -->
+                        <div id="availableUsers" class="divide-y divide-gray-200 dark:divide-gray-600">
+                            <!-- Available users will be loaded here -->
                         </div>
                     </div>
                 </div>
@@ -158,7 +158,7 @@ function loadTeamData() {
 
     // Show loading state
     document.getElementById('currentTeamMembers').innerHTML = '<div class="text-center py-4"><div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div></div>';
-    document.getElementById('availableAssignees').innerHTML = '<div class="text-center py-4"><div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div></div>';
+    document.getElementById('availableUsers').innerHTML = '<div class="text-center py-4"><div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div></div>';
 
     fetch(`/projects/${currentProjectId}/team-data`, {
         method: 'GET',
@@ -172,8 +172,8 @@ function loadTeamData() {
     .then(data => {
         if (data.success) {
             displayCurrentTeamMembers(data.currentMembers);
-            availableAssignees = data.availableAssignees;
-            displayAvailableAssignees(availableAssignees);
+            availableAssignees = data.availableUsers;
+            displayAvailableUsers(availableAssignees);
         } else {
             showNotification('error', 'Failed to load team data');
         }
@@ -192,58 +192,89 @@ function displayCurrentTeamMembers(members) {
         return;
     }
 
-    const membersHtml = members.map(member => `
+    const membersHtml = members.map(member => {
+        // Role badge colors
+        const roleColors = {
+            'creator': 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200',
+            'assignee': 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200'
+        };
+
+        const roleColor = roleColors[member.role] || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
+
+        return `
         <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <div class="flex items-center space-x-3">
                 <div class="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
                     <span class="text-sm font-medium text-gray-600 dark:text-gray-400">${member.name.charAt(0)}</span>
                 </div>
                 <div>
-                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">${member.name}</p>
+                    <div class="flex items-center space-x-2">
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">${member.name}</p>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleColor}">
+                            ${member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                        </span>
+                    </div>
                     <p class="text-xs text-gray-500 dark:text-gray-400">${member.email}</p>
                 </div>
             </div>
             <button
                 onclick="openRemoveMemberModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')"
-                class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900 transition-colors duration-200">
+                class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900 transition-colors duration-200"
+                title="Remove ${member.name} from project">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
             </button>
         </div>
-    `).join('');
+    `;
+    }).join('');
 
     container.innerHTML = membersHtml;
 }
 
-function displayAvailableAssignees(assignees) {
-    const container = document.getElementById('availableAssignees');
+function displayAvailableUsers(users) {
+    const container = document.getElementById('availableUsers');
 
-    if (assignees.length === 0) {
-        container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">No available assignees found.</p>';
+    if (users.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">No available users found.</p>';
         return;
     }
 
-    const assigneesHtml = assignees.map(assignee => `
-        <div class="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onclick="toggleAssigneeFromDiv(event, ${assignee.id})">
+    const usersHtml = users.map(user => {
+        // Role badge colors
+        const roleColors = {
+            'creator': 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200',
+            'assignee': 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200'
+        };
+
+        const roleColor = roleColors[user.role] || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
+
+        return `
+        <div class="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onclick="toggleAssigneeFromDiv(event, ${user.id})">
             <div class="flex items-center space-x-3">
                 <input
                     type="checkbox"
-                    id="assignee_${assignee.id}"
-                    onclick="toggleAssigneeFromCheckbox(event, ${assignee.id})"
+                    id="assignee_${user.id}"
+                    onclick="toggleAssigneeFromCheckbox(event, ${user.id})"
                     class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded cursor-pointer">
                 <div class="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                    <span class="text-sm font-medium text-gray-600 dark:text-gray-400">${assignee.name.charAt(0)}</span>
+                    <span class="text-sm font-medium text-gray-600 dark:text-gray-400">${user.name.charAt(0)}</span>
                 </div>
                 <div class="flex-1">
-                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">${assignee.name}</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">${assignee.email}</p>
+                    <div class="flex items-center space-x-2">
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">${user.name}</p>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleColor}">
+                            ${user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                        </span>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">${user.email}</p>
                 </div>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 
-    container.innerHTML = assigneesHtml;
+    container.innerHTML = usersHtml;
 }
 
 function toggleAssigneeFromDiv(event, assigneeId) {
@@ -431,11 +462,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (searchInput) {
         searchInput.addEventListener('input', function() {
             const searchTerm = this.value.toLowerCase();
-            const filtered = availableAssignees.filter(assignee =>
-                assignee.name.toLowerCase().includes(searchTerm) ||
-                assignee.email.toLowerCase().includes(searchTerm)
+            const filtered = availableAssignees.filter(user =>
+                user.name.toLowerCase().includes(searchTerm) ||
+                user.email.toLowerCase().includes(searchTerm)
             );
-            displayAvailableAssignees(filtered);
+            displayAvailableUsers(filtered);
         });
     }
 });
