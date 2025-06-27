@@ -219,9 +219,11 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        updateProjectsContent(data.organizedProjects, data.totalProjects, search);
+                        // Use the rendered HTML from the server instead of generating it client-side
+                        projectsContent.innerHTML = data.html;
                         updateResultsInfo(data.totalProjects, search);
                         updateClearButtonVisibility(search, sort);
+                        updateStatisticsCards(data.organizedProjects, data.totalProjects);
                     } else {
                         showNotification('error', 'Failed to load projects');
                     }
@@ -264,26 +266,7 @@
                 }
             }
 
-            function updateProjectsContent(organizedProjects, totalProjects, search) {
-                const userRole = '{{ $user->role }}';
-                let contentHtml = '';
 
-                // Generate content based on user role and organized projects
-                if (userRole === 'member') {
-                    contentHtml = generateMemberView(organizedProjects);
-                } else if (userRole === 'assignee') {
-                    contentHtml = generateAssigneeView(organizedProjects);
-                } else if (userRole === 'creator') {
-                    contentHtml = generateCreatorView(organizedProjects);
-                } else if (userRole === 'admin') {
-                    contentHtml = generateAdminView(organizedProjects);
-                }
-
-                projectsContent.innerHTML = contentHtml;
-
-                // Update statistics cards
-                updateStatisticsCards(organizedProjects, totalProjects);
-            }
 
             function updateResultsInfo(totalProjects, search) {
                 let infoText = '';
@@ -320,179 +303,7 @@
                 }
             }
 
-            function generateMemberView(organizedProjects) {
-                return generateRoleView(organizedProjects, 'member', [
-                    { key: 'ownProjects', title: 'My Created Projects', emptyMessage: 'You haven\'t created any projects yet.' },
-                    { key: 'otherProjects', title: 'All Organization Projects', emptyMessage: 'No projects found in your organization.' }
-                ]);
-            }
 
-            function generateAssigneeView(organizedProjects) {
-                return generateRoleView(organizedProjects, 'assignee', [
-                    { key: 'assignedProjects', title: 'Projects I\'m Assigned To', emptyMessage: 'You are not assigned to any projects yet.' },
-                    { key: 'otherProjects', title: 'Other Projects', emptyMessage: 'No other projects available.' }
-                ]);
-            }
-
-            function generateCreatorView(organizedProjects) {
-                return generateRoleView(organizedProjects, 'creator', [
-                    { key: 'ownProjects', title: 'My Created Projects', emptyMessage: 'You haven\'t created any projects yet.' },
-                    { key: 'assignedProjects', title: 'Projects I\'m Assigned To', emptyMessage: 'You are not assigned to any projects.' },
-                    { key: 'otherProjects', title: 'Other Projects', emptyMessage: 'No other projects available.' }
-                ]);
-            }
-
-            function generateAdminView(organizedProjects) {
-                return generateRoleView(organizedProjects, 'admin', [
-                    { key: 'ownProjects', title: 'My Created Projects', emptyMessage: 'You haven\'t created any projects yet.' },
-                    { key: 'otherProjects', title: 'All Organization Projects', emptyMessage: 'No projects found in your organization.' }
-                ]);
-            }
-
-            function generateRoleView(organizedProjects, userRole, sections) {
-                let html = '';
-
-                sections.forEach(section => {
-                    const projects = organizedProjects[section.key] || [];
-
-                    html += `
-                        <div class="mb-8">
-                            <div class="flex items-center justify-between mb-4">
-                                <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">${section.title}</h2>
-                                <span class="text-sm text-gray-500 dark:text-gray-400">${projects.length} project${projects.length !== 1 ? 's' : ''}</span>
-                            </div>
-                    `;
-
-                    if (projects.length > 0) {
-                        html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">';
-                        projects.forEach(project => {
-                            html += generateProjectCard(project, userRole, section.key);
-                        });
-                        html += '</div>';
-                    } else {
-                        html += `
-                            <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                                </svg>
-                                <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No projects found</h3>
-                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">${section.emptyMessage}</p>
-                            </div>
-                        `;
-                    }
-
-                    html += '</div>';
-                });
-
-                return html;
-            }
-
-            function generateProjectCard(project, userRole, sectionKey) {
-                const completedTasks = project.tasks ? project.tasks.filter(task => task.status === 'completed').length : 0;
-                const totalTasks = project.tasks ? project.tasks.length : 0;
-                const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-                // Determine available actions based on user role and relationship
-                let actions = [];
-
-                if (userRole === 'admin') {
-                    actions = ['read', 'enter', 'edit', 'delete', 'manage_team'];
-                } else if (sectionKey === 'ownProjects') {
-                    actions = ['read', 'enter', 'edit', 'delete', 'manage_team'];
-                } else if (sectionKey === 'assignedProjects') {
-                    actions = ['read', 'enter'];
-                } else {
-                    actions = ['read'];
-                }
-
-                const statusColors = {
-                    'active': 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200',
-                    'completed': 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200',
-                    'archived': 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                };
-
-                let actionsHtml = '';
-                actions.forEach(action => {
-                    switch(action) {
-                        case 'read':
-                            actionsHtml += `<button onclick="openReadModal(${project.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors duration-200" title="View Details"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>`;
-                            break;
-                        case 'enter':
-                            actionsHtml += `<button onclick="enterProject(${project.id})" class="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 p-1 rounded hover:bg-green-50 dark:hover:bg-green-900 transition-colors duration-200" title="Enter Project"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg></button>`;
-                            break;
-                        case 'edit':
-                            actionsHtml += `<button onclick="openEditModal(${project.id})" class="text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 p-1 rounded hover:bg-yellow-50 dark:hover:bg-yellow-900 transition-colors duration-200" title="Edit Project"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>`;
-                            break;
-                        case 'delete':
-                            actionsHtml += `<button onclick="openDeleteModal(${project.id})" class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900 transition-colors duration-200" title="Delete Project"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>`;
-                            break;
-                        case 'manage_team':
-                            actionsHtml += `<button onclick="openManageTeamModal(${project.id}, '${project.name.replace(/'/g, "\\'")}' )" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 p-1 rounded hover:bg-purple-50 dark:hover:bg-purple-900 transition-colors duration-200" title="Manage Team"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></button>`;
-                            break;
-                    }
-                });
-
-                return `
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg hover:shadow-md transition-shadow duration-200">
-                        <div class="p-6">
-                            <div class="flex items-start justify-between mb-4">
-                                <div class="flex-1">
-                                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">${project.name}</h3>
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[project.status] || statusColors.active}">
-                                        ${project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                                    </span>
-                                </div>
-                                <div class="flex items-center space-x-1 ml-4">
-                                    ${actionsHtml}
-                                </div>
-                            </div>
-
-                            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
-                                ${project.description || 'No description provided.'}
-                            </p>
-
-                            <div class="mb-4">
-                                <div class="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
-                                    <span>Progress</span>
-                                    <span>${progressPercentage}%</span>
-                                </div>
-                                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                    <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: ${progressPercentage}%"></div>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-                                <div class="flex items-center space-x-4">
-                                    <span class="flex items-center">
-                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                                        </svg>
-                                        ${totalTasks} task${totalTasks !== 1 ? 's' : ''}
-                                    </span>
-                                    <span class="flex items-center">
-                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                                        </svg>
-                                        ${project.users ? project.users.length : 0} member${project.users && project.users.length !== 1 ? 's' : ''}
-                                    </span>
-                                </div>
-                                <div class="flex items-center">
-                                    <div class="w-6 h-6 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center mr-2">
-                                        <span class="text-xs font-medium text-gray-600 dark:text-gray-400">${project.creator ? project.creator.name.charAt(0) : 'U'}</span>
-                                    </div>
-                                    <span class="text-xs">${project.creator ? project.creator.name : 'Unknown'}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            // Helper function for entering projects (placeholder)
-            window.enterProject = function(projectId) {
-                // TODO: Implement project entry functionality
-                showNotification('info', 'Project entry functionality coming soon!');
-            };
         });
     </script>
 </x-app-layout>

@@ -35,8 +35,23 @@ class ProjectController extends Controller
 
         // Handle AJAX requests for search/filter
         if ($request->expectsJson()) {
+            // Render the appropriate view based on user role
+            $viewName = match($user->role) {
+                'member' => 'dashboard.projects.partials.member-view',
+                'assignee' => 'dashboard.projects.partials.assignee-view',
+                'creator' => 'dashboard.projects.partials.creator-view',
+                'admin' => 'dashboard.projects.partials.admin-view',
+                default => 'dashboard.projects.partials.member-view'
+            };
+
+            $html = view($viewName, [
+                'organizedProjects' => $cachedData['organizedProjects'],
+                'user' => $user
+            ])->render();
+
             return response()->json([
                 'success' => true,
+                'html' => $html,
                 'organizedProjects' => $cachedData['organizedProjects'],
                 'totalProjects' => $cachedData['totalProjects'],
                 'search' => $search,
@@ -55,7 +70,7 @@ class ProjectController extends Controller
     }
 
     /**
-     * Get projects data with optimized queries
+     * Get projects data with optimized queries - show all projects but access control applied on click
      */
     private function getProjectsData(User $user, string $search, string $sort): array
     {

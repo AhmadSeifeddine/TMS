@@ -13,7 +13,7 @@
         @csrf
     </form>
 
-    <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6" enctype="multipart/form-data">
+    <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6" enctype="multipart/form-data" id="profileUpdateForm">
         @csrf
         @method('patch')
 
@@ -49,10 +49,11 @@
                                 hover:file:bg-blue-100
                                 dark:file:bg-blue-900/20 dark:file:text-blue-400
                                 dark:hover:file:bg-blue-900/30"
-                        onchange="previewImage(this)">
+                        onchange="validateAndPreviewImage(this)">
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         PNG, JPG, GIF up to 2MB
                     </p>
+                    <div id="profile-file-size-error" class="mt-2 text-sm text-red-600 dark:text-red-400" style="display: none;"></div>
                 </div>
             </div>
 
@@ -90,7 +91,7 @@
         </div>
 
         <div class="flex items-center gap-4">
-            <x-primary-button>{{ __('Save') }}</x-primary-button>
+            <x-primary-button id="profileSaveButton">{{ __('Save') }}</x-primary-button>
 
             @if (session('status') === 'profile-updated')
                 <p
@@ -105,20 +106,62 @@
     </form>
 
     <script>
-        function previewImage(input) {
+        function validateAndPreviewImage(input) {
+            const maxSize = 2 * 1024 * 1024; // 2MB in bytes
+            const errorDiv = document.getElementById('profile-file-size-error');
+            const saveButton = document.getElementById('profileSaveButton');
             const preview = document.getElementById('profile-preview');
 
             if (input.files && input.files[0]) {
-                const reader = new FileReader();
+                const file = input.files[0];
 
-                reader.onload = function(e) {
-                    preview.innerHTML = `<img class="h-20 w-20 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600"
-                                              src="${e.target.result}"
-                                              alt="Profile Preview">`;
+                // Check file size
+                if (file.size > maxSize) {
+                    errorDiv.textContent = 'The selected file is too large. Please choose a file smaller than 2MB.';
+                    errorDiv.style.display = 'block';
+                    saveButton.disabled = true;
+                    saveButton.classList.add('opacity-50', 'cursor-not-allowed');
+
+                    // Clear the file input
+                    input.value = '';
+                } else {
+                    errorDiv.style.display = 'none';
+                    saveButton.disabled = false;
+                    saveButton.classList.remove('opacity-50', 'cursor-not-allowed');
+
+                    // Preview the image
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        preview.innerHTML = `<img class="h-20 w-20 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600"
+                                                  src="${e.target.result}"
+                                                  alt="Profile Preview">`;
+                    }
+                    reader.readAsDataURL(file);
                 }
-
-                reader.readAsDataURL(input.files[0]);
+            } else {
+                errorDiv.style.display = 'none';
+                saveButton.disabled = false;
+                saveButton.classList.remove('opacity-50', 'cursor-not-allowed');
             }
+        }
+
+        // Additional form validation before submission
+        document.getElementById('profileUpdateForm').addEventListener('submit', function(e) {
+            const fileInput = document.getElementById('profile_image');
+            const maxSize = 2 * 1024 * 1024; // 2MB in bytes
+
+            if (fileInput.files && fileInput.files[0] && fileInput.files[0].size > maxSize) {
+                e.preventDefault();
+                const errorDiv = document.getElementById('profile-file-size-error');
+                errorDiv.textContent = 'Please select a file smaller than 2MB before submitting.';
+                errorDiv.style.display = 'block';
+                return false;
+            }
+        });
+
+        // Legacy function for backward compatibility (if needed elsewhere)
+        function previewImage(input) {
+            validateAndPreviewImage(input);
         }
     </script>
 </section>

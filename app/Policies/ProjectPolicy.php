@@ -22,9 +22,23 @@ class ProjectPolicy
      */
     public function view(User $user, Project $project): bool
     {
-        // All authenticated users can view project details (for the modal)
-        // This allows everyone to see basic project information
-        return true;
+        // Admins can view all projects
+        if ($user->role === 'admin') {
+            return true;
+        }
+
+        // Project creators can view their own projects
+        if ($project->isCreatedBy($user)) {
+            return true;
+        }
+
+        // Assigned users can view projects they're assigned to
+        if ($project->hasUser($user)) {
+            return true;
+        }
+
+        // All other users cannot view the project
+        return false;
     }
 
     /**

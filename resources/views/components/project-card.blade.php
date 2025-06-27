@@ -46,7 +46,7 @@
                 <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 {{ $canView ? 'group-hover:text-blue-600 dark:group-hover:text-blue-400' : '' }} transition-colors duration-200 line-clamp-2">
                     {{ $project->name }}
                 </h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed mb-3">
+                                <p class="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed mb-3">
                     {{ Str::limit($project->description, 150) }}
                 </p>
 
@@ -141,7 +141,7 @@
         @if(count($actions) > 0)
             <div class="flex flex-wrap gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                 @foreach($actions as $action)
-                    @if($action === 'read')
+                    @if($action === 'read' && $canView)
                         <button
                             onclick="event.stopPropagation(); openReadModal({{ $project->id }})"
                             class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200">
@@ -165,6 +165,7 @@
                         @else
                             <button
                                 disabled
+                                onclick="event.stopPropagation()"
                                 class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-lg text-gray-400 bg-gray-300 cursor-not-allowed opacity-50">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
