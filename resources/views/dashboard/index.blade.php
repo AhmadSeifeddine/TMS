@@ -331,19 +331,17 @@
             new Chart(taskCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Completed', 'In Progress', 'Pending', 'Overdue'],
+                    labels: ['Completed', 'In Progress', 'Pending'],
                     datasets: [{
                         data: [
                             {{ $stats['tasks']['completed'] }},
                             {{ $stats['tasks']['in_progress'] }},
-                            {{ $stats['tasks']['pending'] }},
-                            {{ $stats['tasks']['overdue'] }}
+                            {{ $stats['tasks']['pending'] }}
                         ],
                         backgroundColor: [
                             '#10B981', // Green for completed
                             '#3B82F6', // Blue for in progress
-                            '#F59E0B', // Yellow for pending
-                            '#EF4444'  // Red for overdue
+                            '#F59E0B'  // Yellow for pending
                         ],
                         borderColor: isDarkMode ? '#1F2937' : '#FFFFFF',
                         borderWidth: 2
