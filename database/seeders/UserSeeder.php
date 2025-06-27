@@ -14,92 +14,46 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create Admin Users
-        $admin1 = User::create([
-            'name' => 'John Admin',
-            'email' => 'john.admin@company.com',
-            'password' => Hash::make('password'),
+        // Create the 4 specific test accounts as requested
+
+        // 1. Admin Account
+        $admin = User::create([
+            'name' => 'System Administrator',
+            'email' => 'admin@company.com',
+            'password' => Hash::make('adminadmin'),
             'role' => 'admin',
             'email_verified_at' => now(),
         ]);
 
-        $admin2 = User::create([
-            'name' => 'Sarah Admin',
-            'email' => 'sarah.admin@company.com',
-            'password' => Hash::make('password'),
-            'role' => 'admin',
-            'email_verified_at' => now(),
-        ]);
-
-        // Create Creator Users
-        $creator1 = User::create([
-            'name' => 'Mike Creator',
-            'email' => 'mike.creator@company.com',
-            'password' => Hash::make('password'),
+        // 2. Creator Account
+        $creator = User::create([
+            'name' => 'Project Creator',
+            'email' => 'creator@company.com',
+            'password' => Hash::make('creatorcreator'),
             'role' => 'creator',
             'email_verified_at' => now(),
         ]);
 
-        $creator2 = User::create([
-            'name' => 'Emma Creator',
-            'email' => 'emma.creator@company.com',
-            'password' => Hash::make('password'),
-            'role' => 'creator',
-            'email_verified_at' => now(),
-        ]);
-
-        // Create Assignee Users
-        $assignee1 = User::create([
-            'name' => 'David Assignee',
-            'email' => 'david.assignee@company.com',
-            'password' => Hash::make('password'),
+        // 3. Assignee Account
+        $assignee = User::create([
+            'name' => 'Task Assignee',
+            'email' => 'assignee@company.com',
+            'password' => Hash::make('assignee'),
             'role' => 'assignee',
             'email_verified_at' => now(),
         ]);
 
-        $assignee2 = User::create([
-            'name' => 'Lisa Assignee',
-            'email' => 'lisa.assignee@company.com',
-            'password' => Hash::make('password'),
-            'role' => 'assignee',
-            'email_verified_at' => now(),
-        ]);
-
-        $assignee3 = User::create([
-            'name' => 'Tom Assignee',
-            'email' => 'tom.assignee@company.com',
-            'password' => Hash::make('password'),
-            'role' => 'assignee',
-            'email_verified_at' => now(),
-        ]);
-
-        // Create Member Users
-        $member1 = User::create([
-            'name' => 'Anna Member',
-            'email' => 'anna.member@company.com',
-            'password' => Hash::make('password'),
-            'role' => 'member',
-            'email_verified_at' => now(),
-        ]);
-
-        $member2 = User::create([
-            'name' => 'Chris Member',
-            'email' => 'chris.member@company.com',
-            'password' => Hash::make('password'),
-            'role' => 'member',
-            'email_verified_at' => now(),
-        ]);
-
-        $member3 = User::create([
-            'name' => 'Julie Member',
-            'email' => 'julie.member@company.com',
-            'password' => Hash::make('password'),
+        // 4. Member Account
+        $member = User::create([
+            'name' => 'Team Member',
+            'email' => 'member@company.com',
+            'password' => Hash::make('membermember'),
             'role' => 'member',
             'email_verified_at' => now(),
         ]);
 
         // Add default profile images for all users
-        $users = [$admin1, $admin2, $creator1, $creator2, $assignee1, $assignee2, $assignee3, $member1, $member2, $member3];
+        $users = [$admin, $creator, $assignee, $member];
 
         foreach ($users as $user) {
             $user->addMediaFromUrl('https://ui-avatars.com/api/?name=' . urlencode($user->name) . '&color=7F9CF5&background=EBF4FF&size=200')
@@ -107,6 +61,6 @@ class UserSeeder extends Seeder
                  ->toMediaCollection('profile_images');
         }
 
-        $this->command->info('Created 10 users with different roles and profile images.');
+        $this->command->info('Created 4 test accounts with specific credentials and profile images.');
     }
 }

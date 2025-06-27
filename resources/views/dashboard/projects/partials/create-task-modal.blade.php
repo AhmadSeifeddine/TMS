@@ -248,8 +248,8 @@ if (createTaskForm && !createTaskForm.hasAttribute('data-listener-attached')) {
         submitBtn.disabled = false;
         submitBtn.querySelector('.submit-text').classList.remove('hidden');
         submitBtn.querySelector('.loading-text').classList.add('hidden');
-                });
-        });
+    });
+});
     }
 
 // Close modal when clicking outside (prevent duplicate listeners)
@@ -257,19 +257,19 @@ const createTaskModal = document.getElementById('createTaskModal');
 if (createTaskModal && !createTaskModal.hasAttribute('data-click-listener-attached')) {
     createTaskModal.setAttribute('data-click-listener-attached', 'true');
     createTaskModal.addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeCreateTaskModal();
-        }
-    });
+    if (e.target === this) {
+        closeCreateTaskModal();
+    }
+});
 }
 
 // Close modal with Escape key (prevent duplicate listeners)
 if (!document.body.hasAttribute('data-escape-listener-attached')) {
     document.body.setAttribute('data-escape-listener-attached', 'true');
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && !document.getElementById('createTaskModal').classList.contains('hidden')) {
-            closeCreateTaskModal();
-        }
-    });
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && !document.getElementById('createTaskModal').classList.contains('hidden')) {
+        closeCreateTaskModal();
+    }
+});
 }
 </script>

@@ -60,19 +60,6 @@ class SendTaskAssignmentNotification implements ShouldQueue
         $this->assignedUser = $assignedUser;
         $this->assignedBy = $assignedBy;
 
-        // Set queue and delay if needed
-        $this->onQueue('notifications');
-    }
-
-    /**
-     * Get the middleware the job should pass through.
-     */
-    public function middleware(): array
-    {
-        return [
-            // Prevent overlapping jobs for the same task assignment
-            new WithoutOverlapping("task-assignment-{$this->task->id}-{$this->assignedUser->id}")
-        ];
     }
 
     /**

@@ -167,14 +167,16 @@ TaskComments
 2. **Register** with a company email (domain validation applies)
 3. **Login** and explore the dashboard
 
-### **Default Accounts** (after seeding)
+### **Test Accounts** (after seeding)
 
 | Email | Role | Password |
 |-------|------|----------|
-| admin@company.com | Admin | password |
-| emma.creator@company.com | Creator | password |
-| john.assignee@company.com | Assignee | password |
-| sarah.member@company.com | Member | password |
+| admin@company.com | Admin | adminadmin |
+| creator@company.com | Creator | creatorcreator |
+| assignee@company.com | Assignee | assignee |
+| member@company.com | Member | membermember |
+
+**Note**: These accounts come pre-loaded with sample data for testing different roles and permissions.
 
 ### **Creating Your First Project**
 

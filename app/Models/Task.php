@@ -66,9 +66,9 @@ class Task extends Model
                     // Creators can see tasks from their own projects + projects they're assigned to
                     $projectQuery->where(function ($q) use ($user) {
                         $q->where('created_by', $user->id)
-                        ->orWhereHas('users', function ($subQuery) use ($user) {
-                            $subQuery->where('user_id', $user->id);
-                        });
+                            ->orWhereHas('users', function ($subQuery) use ($user) {
+                                $subQuery->where('user_id', $user->id);
+                            });
                     });
                 } else {
                     // Assignees and members can only see tasks from projects they're assigned to
@@ -86,7 +86,7 @@ class Task extends Model
     public function canUpdateStatusBy(User $user): bool
     {
         return $user->id === $this->project->created_by ||
-               $user->id === $this->assigned_to;
+            $user->id === $this->assigned_to;
     }
 
     /**
@@ -110,7 +110,7 @@ class Task extends Model
      */
     public function getStatusBadgeColor(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => 'bg-yellow-100 text-yellow-800',
             'in_progress' => 'bg-blue-100 text-blue-800',
             'completed' => 'bg-green-100 text-green-800',
@@ -123,7 +123,7 @@ class Task extends Model
      */
     public function getPriorityBadgeColor(): string
     {
-        return match($this->priority) {
+        return match ($this->priority) {
             'low' => 'bg-gray-100 text-gray-800',
             'medium' => 'bg-yellow-100 text-yellow-800',
             'high' => 'bg-red-100 text-red-800',

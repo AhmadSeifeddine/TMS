@@ -37,8 +37,8 @@
                             </p>
                         </div>
                     </div>
-                </div>
-            </div>
+                        </div>
+                    </div>
 
             <!-- Statistics Cards -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -64,7 +64,7 @@
                             {{ $stats['projects']['completed'] }} Done
                         </span>
                     </div>
-                </div>
+                        </div>
 
                 <!-- Tasks Card -->
                 <div class="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-6 rounded-lg border border-green-200 dark:border-green-700">
@@ -94,7 +94,7 @@
                             {{ $stats['tasks']['in_progress'] }} In Progress
                         </span>
                     </div>
-                </div>
+                        </div>
 
                 <!-- Comments Card -->
                 <div class="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 p-6 rounded-lg border border-purple-200 dark:border-purple-700">

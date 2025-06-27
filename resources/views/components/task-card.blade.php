@@ -230,21 +230,21 @@
                     <div class="flex space-x-2">
                         <input
                             type="text"
-                            id="comment-input-{{ $task->id }}"
-                            name="comment"
-                            maxlength="500"
+                                    id="comment-input-{{ $task->id }}"
+                                    name="comment"
+                                    maxlength="500"
                             placeholder="Add a comment..."
                             class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
                             required>
-                        <button
-                            type="submit"
-                            id="comment-submit-{{ $task->id }}"
+                                        <button
+                                            type="submit"
+                                            id="comment-submit-{{ $task->id }}"
                             class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                             <span class="submit-text">Post</span>
                             <span class="loading-text hidden">...</span>
-                        </button>
-                    </div>
-                </form>
+                                        </button>
+                        </div>
+                    </form>
             @endif
 
             <!-- Existing Comments -->
@@ -367,7 +367,7 @@ function addComment(event, taskId) {
 
             // Show success notification
             if (typeof showNotification === 'function') {
-                showNotification('success', 'Comment added successfully!');
+            showNotification('success', 'Comment added successfully!');
             }
 
             // Reload the page to show the new comment
@@ -376,14 +376,14 @@ function addComment(event, taskId) {
             }, 1000);
         } else {
             if (typeof showNotification === 'function') {
-                showNotification('error', data.message || 'Failed to add comment.');
+            showNotification('error', data.message || 'Failed to add comment.');
             }
         }
     })
     .catch(error => {
         console.error('Error adding comment:', error);
         if (typeof showNotification === 'function') {
-            showNotification('error', 'An error occurred while adding the comment.');
+        showNotification('error', 'An error occurred while adding the comment.');
         }
     })
     .finally(() => {

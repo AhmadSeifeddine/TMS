@@ -15,8 +15,13 @@ class TaskSeeder extends Seeder
      */
     public function run(): void
     {
-        $projects = Project::with('users')->get(); // Eager load project users - use get() not all()
-        $creators = User::whereIn('role', ['admin', 'creator'])->get();
+        // Get the 4 specific test accounts
+        $admin = User::where('email', 'admin@company.com')->first();
+        $creator = User::where('email', 'creator@company.com')->first();
+        $assignee = User::where('email', 'assignee@company.com')->first();
+        $member = User::where('email', 'member@company.com')->first();
+
+        $projects = Project::with('users')->get();
 
         foreach ($projects as $project) {
             // Get users assigned to this project
@@ -28,32 +33,72 @@ class TaskSeeder extends Seeder
                 continue;
             }
 
-            // Create 5-8 tasks per project
-            $taskCount = rand(5, 8);
+            // Create 6-8 tasks per project with specific assignments
+            $taskCount = rand(6, 8);
+            $taskData = $this->getTaskDataForProject($project->name);
 
-            for ($i = 1; $i <= $taskCount; $i++) {
-                $taskData = $this->getTaskData($i, $project->name);
+            for ($i = 0; $i < $taskCount; $i++) {
+                $taskInfo = $taskData[$i % count($taskData)];
 
-                // Only assign tasks to users who are assigned to this project
-                $assignedUser = $projectUsers->random();
+                // Ensure assignee gets assigned to tasks across all projects they're in
+                // And ensure admin and creator also get some task assignments
+                $assignedUser = $this->getAssignedUser($projectUsers, $i, $assignee, $admin, $creator, $project);
 
                 Task::create([
-                    'title' => $taskData['title'],
-                    'description' => $taskData['description'],
-                    'status' => $taskData['status'],
-                    'priority' => $taskData['priority'],
-                    'due_date' => $taskData['due_date'],
+                    'title' => $taskInfo['title'],
+                    'description' => $taskInfo['description'],
+                    'status' => $taskInfo['status'],
+                    'priority' => $taskInfo['priority'],
+                    'due_date' => $taskInfo['due_date'],
                     'project_id' => $project->id,
-                    'assigned_to' => $assignedUser->id, // Only assign to project members
-                    'created_by' => $creators->random()->id,
+                    'assigned_to' => $assignedUser->id,
+                    'created_by' => $project->created_by, // Project creator creates the tasks
                 ]);
             }
         }
 
-        $this->command->info('Created tasks for all projects (assigned only to project members).');
+        // Get task counts for summary
+        $adminTasks = Task::where('assigned_to', $admin->id)->count();
+        $creatorTasks = Task::where('assigned_to', $creator->id)->count();
+        $assigneeTasks = Task::where('assigned_to', $assignee->id)->count();
+        $memberTasks = Task::where('assigned_to', $member->id)->count();
+
+        $this->command->info('Created tasks for all projects with specific assignments:');
+        $this->command->info("- Admin has {$adminTasks} tasks assigned");
+        $this->command->info("- Creator has {$creatorTasks} tasks assigned");
+        $this->command->info("- Assignee has {$assigneeTasks} tasks assigned");
+        $this->command->info("- Member has {$memberTasks} tasks assigned");
     }
 
-    private function getTaskData($index, $projectName): array
+    private function getAssignedUser($projectUsers, $taskIndex, $assignee, $admin, $creator, $project)
+    {
+        // Ensure assignee gets priority for task assignments when they're in the project
+        if ($projectUsers->contains($assignee)) {
+            // Give assignee 50% of tasks, distribute rest among other project members
+            if ($taskIndex % 2 === 0) {
+                return $assignee;
+            }
+        }
+
+        // For admin-created projects, admin can still get tasks assigned even if not explicitly in project
+        if ($project->created_by === $admin->id && $taskIndex % 3 === 1) {
+            return $admin;
+        }
+
+        // For other tasks, prioritize creator if they're in the project
+        $otherUsers = $projectUsers->reject(function($user) use ($assignee) {
+            return $user->id === $assignee->id;
+        });
+
+        if ($otherUsers->contains($creator) && $taskIndex % 3 === 2) {
+            return $creator;
+        }
+
+        // Otherwise assign to a random project member
+        return $projectUsers->random();
+    }
+
+    private function getTaskDataForProject($projectName): array
     {
         $tasks = [
             // E-commerce Platform tasks
@@ -113,36 +158,16 @@ class TaskSeeder extends Seeder
             ],
         ];
 
-        // Default tasks if project name doesn't match
-        $defaultTasks = [
-            ['title' => 'Project Planning', 'description' => 'Define project scope, requirements, and timeline.', 'status' => 'completed', 'priority' => 'high'],
-            ['title' => 'Technical Architecture', 'description' => 'Design system architecture and technology stack.', 'status' => 'in_progress', 'priority' => 'high'],
-            ['title' => 'Database Design', 'description' => 'Create database schema and optimization plan.', 'status' => 'in_progress', 'priority' => 'medium'],
-            ['title' => 'Frontend Development', 'description' => 'Implement user interface and user experience.', 'status' => 'pending', 'priority' => 'medium'],
-            ['title' => 'Backend Development', 'description' => 'Develop server-side logic and API endpoints.', 'status' => 'pending', 'priority' => 'medium'],
-            ['title' => 'Testing and QA', 'description' => 'Comprehensive testing and quality assurance.', 'status' => 'pending', 'priority' => 'low'],
-            ['title' => 'Documentation', 'description' => 'Create user and technical documentation.', 'status' => 'pending', 'priority' => 'low'],
-            ['title' => 'Deployment', 'description' => 'Deploy application to production environment.', 'status' => 'pending', 'priority' => 'medium'],
-        ];
+        $projectTasks = $tasks[$projectName] ?? [];
 
-        $projectTasks = $tasks[$projectName] ?? $defaultTasks;
+        // Add due dates to tasks
+        foreach ($projectTasks as &$task) {
+            $dueDays = rand(1, 30);
+            $task['due_date'] = $task['status'] === 'completed'
+                ? Carbon::now()->subDays(rand(1, 15))
+                : Carbon::now()->addDays($dueDays);
+        }
 
-        // Get task by index, or random if index exceeds array length
-        $taskIndex = ($index - 1) % count($projectTasks);
-        $selectedTask = $projectTasks[$taskIndex];
-
-        // Generate random due dates
-        $dueDays = rand(1, 30);
-        $dueDate = $selectedTask['status'] === 'completed'
-            ? Carbon::now()->subDays(rand(1, 15))
-            : Carbon::now()->addDays($dueDays);
-
-        return [
-            'title' => $selectedTask['title'],
-            'description' => $selectedTask['description'],
-            'status' => $selectedTask['status'],
-            'priority' => $selectedTask['priority'],
-            'due_date' => $dueDate,
-        ];
+        return $projectTasks;
     }
 }

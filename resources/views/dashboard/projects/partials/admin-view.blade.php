@@ -22,6 +22,7 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 @foreach($organizedProjects['ownProjects'] as $project)
+
                     <x-project-card
                         :project="$project"
                         :actions="['read', 'enter', 'edit', 'delete', 'manage_team']"
@@ -36,6 +37,8 @@
 
     <!-- All Other Projects Section -->
     @if($organizedProjects['otherProjects']->count() > 0)
+
+
         <div class="space-y-6">
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 border-b border-gray-200 dark:border-gray-700">

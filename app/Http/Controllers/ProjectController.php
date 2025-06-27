@@ -31,9 +31,7 @@ class ProjectController extends Controller
         $cacheKey = "projects_index_{$user->id}_{$search}_{$sort}";
 
         // Try to get from cache first (cache for 5 minutes)
-        $cachedData = Cache::remember($cacheKey, 300, function () use ($user, $search, $sort) {
-            return $this->getProjectsData($user, $search, $sort);
-        });
+        $cachedData = $this->getProjectsData($user, $search ?? '', $sort);
 
         // Handle AJAX requests for search/filter
         if ($request->expectsJson()) {
@@ -65,17 +63,17 @@ class ProjectController extends Controller
         $query = Project::with([
             'creator:id,name,email,role',
             'users:id,name,email,role',
-            'tasks:id,project_id,status'
+            'tasks:id,project_id,status',
         ]);
 
         // Apply search filter with optimized query
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
-                  ->orWhere('description', 'like', '%' . $search . '%')
-                  ->orWhereHas('creator', function ($creatorQuery) use ($search) {
-                      $creatorQuery->where('name', 'like', '%' . $search . '%');
-                  });
+                    ->orWhere('description', 'like', '%' . $search . '%')
+                    ->orWhereHas('creator', function ($creatorQuery) use ($search) {
+                        $creatorQuery->where('name', 'like', '%' . $search . '%');
+                    });
             });
         }
 
@@ -165,7 +163,6 @@ class ProjectController extends Controller
 
             $this->flashSuccess('Project created successfully!');
             return redirect()->route('projects.index');
-
         } catch (\Exception $e) {
             if ($request->expectsJson()) {
                 return response()->json([
@@ -215,8 +212,8 @@ class ProjectController extends Controller
             'creator:id,name,email,role',
             'taskComments' => function ($commentQuery) {
                 $commentQuery->with('creator:id,name,email,role')
-                           ->latest()
-                           ->take(5); // Load latest 5 comments per task
+                    ->latest()
+                    ->take(5); // Load latest 5 comments per task
             }
         ]);
 
@@ -247,8 +244,8 @@ class ProjectController extends Controller
         // Get overdue tasks
         $overdueTasks = $allTasks->filter(function ($task) {
             return $task->due_date &&
-                   \Carbon\Carbon::parse($task->due_date)->isPast() &&
-                   $task->status !== 'completed';
+                \Carbon\Carbon::parse($task->due_date)->isPast() &&
+                $task->status !== 'completed';
         });
 
         if ($request->expectsJson()) {
@@ -363,7 +360,6 @@ class ProjectController extends Controller
 
             $this->flashSuccess('Project updated successfully!');
             return redirect()->route('projects.index');
-
         } catch (\Exception $e) {
             if ($request->expectsJson()) {
                 return response()->json([
@@ -414,7 +410,6 @@ class ProjectController extends Controller
 
             $this->flashSuccess("Project '{$projectName}' deleted successfully!");
             return redirect()->route('projects.index');
-
         } catch (\Exception $e) {
             if (request()->expectsJson()) {
                 return response()->json([
@@ -474,7 +469,6 @@ class ProjectController extends Controller
                 'currentMembers' => $teamData['currentMembers'],
                 'availableUsers' => $teamData['availableUsers']
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -541,7 +535,6 @@ class ProjectController extends Controller
                 'success' => true,
                 'message' => $message
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -593,7 +586,6 @@ class ProjectController extends Controller
                 'success' => true,
                 'message' => "Successfully removed {$member->name} from the project."
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
