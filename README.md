@@ -440,4 +440,4 @@ This project is open-sourced software licensed under the [MIT license](https://o
 
 ---
 
-**Built with ❤️ using Laravel 11, Tailwind CSS, and modern web technologies.**
+**Built with ❤️ using Laravel 12, Tailwind CSS, and modern web technologies.**
