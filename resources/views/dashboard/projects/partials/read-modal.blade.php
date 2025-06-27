@@ -51,6 +51,8 @@ function openReadModal(projectId) {
     .then(data => {
         if (data.success) {
             const project = data.project;
+            const tasks = data.tasks || [];
+            const statistics = data.statistics || {};
             const statusColors = {
                 'active': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
                 'completed': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
@@ -79,19 +81,36 @@ function openReadModal(projectId) {
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Created By</label>
-                            <p class="text-sm text-gray-900 dark:text-gray-100">${project.creator.name}</p>
+                            <p class="text-sm text-gray-900 dark:text-gray-100">${project.creator ? project.creator.name : 'Unknown'}</p>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tasks</label>
-                            <p class="text-sm text-gray-900 dark:text-gray-100">${project.tasks.length} tasks</p>
+                            <p class="text-sm text-gray-900 dark:text-gray-100">${statistics.total_tasks || 0} tasks</p>
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Team Members</label>
-                            <p class="text-sm text-gray-900 dark:text-gray-100">${project.users.length} members</p>
+                            <p class="text-sm text-gray-900 dark:text-gray-100">${project.users ? project.users.length : 0} members</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Completed Tasks</label>
+                            <p class="text-sm text-gray-900 dark:text-gray-100">${statistics.completed_tasks || 0}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Progress</label>
+                            <p class="text-sm text-gray-900 dark:text-gray-100">${statistics.progress_percentage || 0}%</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Overdue Tasks</label>
+                            <p class="text-sm text-gray-900 dark:text-gray-100">${statistics.overdue_tasks || 0}</p>
                         </div>
                     </div>
 

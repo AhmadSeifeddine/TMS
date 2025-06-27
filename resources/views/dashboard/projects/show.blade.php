@@ -30,12 +30,14 @@
                     </button>
                 @endcan
 
-                <button class="inline-flex items-center px-3 py-2 border border-green-300 dark:border-green-600 shadow-sm text-sm leading-4 font-medium rounded-md text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900 hover:bg-green-100 dark:hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                    Add Task
-                </button>
+                @can('createInProject', [App\Models\Task::class, $project])
+                    <button onclick="openCreateTaskModal({{ $project->id }}, '{{ addslashes($project->name) }}', {{ json_encode($project->users->merge(collect([$project->creator]))->unique('id')->filter(function($user) { return $user->role !== 'admin'; })->map(function($user) { return ['id' => $user->id, 'name' => $user->name, 'role' => $user->role]; })->values()) }})" class="inline-flex items-center px-3 py-2 border border-green-300 dark:border-green-600 shadow-sm text-sm leading-4 font-medium rounded-md text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900 hover:bg-green-100 dark:hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Add Task
+                    </button>
+                @endcan
             </div>
         </div>
     </x-slot>
@@ -161,111 +163,64 @@
 
             <!-- Tasks Timeline Section -->
             <div class="mb-8">
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Project Tasks</h2>
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Project Tasks</h2>
 
-                <!-- Task Status Tabs -->
-                <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
-                    <nav class="-mb-px flex space-x-8">
-                        <button class="task-tab active border-b-2 border-blue-500 py-2 px-1 text-sm font-medium text-blue-600 dark:text-blue-400" data-status="all">
-                            All Tasks ({{ $totalTasks }})
-                        </button>
-                        <button class="task-tab border-b-2 border-transparent py-2 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300" data-status="pending">
-                            Pending ({{ $tasksByStatus['pending']->count() }})
-                        </button>
-                        <button class="task-tab border-b-2 border-transparent py-2 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300" data-status="in_progress">
-                            In Progress ({{ $tasksByStatus['in_progress']->count() }})
-                        </button>
-                        <button class="task-tab border-b-2 border-transparent py-2 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300" data-status="completed">
-                            Completed ({{ $tasksByStatus['completed']->count() }})
-                        </button>
-                    </nav>
+                    <!-- Status Filter Component -->
+                    <x-status-filter
+                        :currentStatus="$currentFilter"
+                        :taskCounts="$taskCounts"
+                        :projectId="$project->id"
+                    />
                 </div>
 
-                <!-- Task Lists -->
+                <!-- Task Display -->
                 <div id="tasks-container">
-                    <!-- All Tasks View -->
-                    <div class="task-content active" data-status="all">
-                        @if($project->tasks->count() > 0)
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                @foreach($project->tasks as $task)
-                                    <x-task-card :task="$task" />
-                                @endforeach
-                            </div>
-                        @else
-                            <div class="text-center py-12">
+                    @if($tasks->count() > 0)
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            @foreach($tasks as $task)
+                                <x-task-card :task="$task" />
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="text-center py-12">
+                            @if($currentFilter === 'all')
                                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                                 </svg>
                                 <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No tasks yet</h3>
                                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by creating your first task.</p>
-                                <div class="mt-6">
-                                    <button class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                        </svg>
-                                        Add Task
-                                    </button>
-                                </div>
-                            </div>
-                        @endif
-                    </div>
-
-                    <!-- Pending Tasks -->
-                    <div class="task-content hidden" data-status="pending">
-                        @if($tasksByStatus['pending']->count() > 0)
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                @foreach($tasksByStatus['pending'] as $task)
-                                    <x-task-card :task="$task" />
-                                @endforeach
-                            </div>
-                        @else
-                            <div class="text-center py-12">
+                                @can('createInProject', [App\Models\Task::class, $project])
+                                    <div class="mt-6">
+                                        <button onclick="openCreateTaskModal({{ $project->id }}, '{{ addslashes($project->name) }}', {{ json_encode($project->users->merge(collect([$project->creator]))->unique('id')->filter(function($user) { return $user->role !== 'admin'; })->map(function($user) { return ['id' => $user->id, 'name' => $user->name, 'role' => $user->role]; })->values()) }})" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                            </svg>
+                                            Add Task
+                                        </button>
+                                    </div>
+                                @endcan
+                            @elseif($currentFilter === 'pending')
                                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                 </svg>
                                 <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No pending tasks</h3>
                                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">All tasks are either in progress or completed.</p>
-                            </div>
-                        @endif
-                    </div>
-
-                    <!-- In Progress Tasks -->
-                    <div class="task-content hidden" data-status="in_progress">
-                        @if($tasksByStatus['in_progress']->count() > 0)
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                @foreach($tasksByStatus['in_progress'] as $task)
-                                    <x-task-card :task="$task" />
-                                @endforeach
-                            </div>
-                        @else
-                            <div class="text-center py-12">
+                            @elseif($currentFilter === 'in_progress')
                                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                                 </svg>
                                 <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No tasks in progress</h3>
                                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Start working on pending tasks to see them here.</p>
-                            </div>
-                        @endif
-                    </div>
-
-                    <!-- Completed Tasks -->
-                    <div class="task-content hidden" data-status="completed">
-                        @if($tasksByStatus['completed']->count() > 0)
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                @foreach($tasksByStatus['completed'] as $task)
-                                    <x-task-card :task="$task" />
-                                @endforeach
-                            </div>
-                        @else
-                            <div class="text-center py-12">
+                            @elseif($currentFilter === 'completed')
                                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                 </svg>
                                 <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No completed tasks</h3>
                                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Complete some tasks to see them here.</p>
-                            </div>
-                        @endif
-                    </div>
+                            @endif
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -277,42 +232,63 @@
     <!-- Include Edit Project Modal -->
     @include('dashboard.projects.partials.edit-modal')
 
+    <!-- Include Delete Task Modal -->
+    @include('dashboard.projects.partials.delete-task-modal')
+
+    <!-- Include Create Task Modal -->
+    @include('dashboard.projects.partials.create-task-modal')
+
+    <!-- Include Edit Task Modal -->
+    @include('dashboard.projects.partials.edit-task-modal')
+
+    <!-- Include Edit Task Modal Script -->
+    @include('dashboard.projects.partials.edit-task-script')
+
+    <!-- Status Update Confirmation Modal -->
+    <div id="statusUpdateModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full sm:mx-0 sm:h-10 sm:w-10" id="statusModalIcon">
+                            <!-- Icon will be set dynamically -->
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100" id="statusModalTitle">
+                                Confirm Status Update
+                            </h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500 dark:text-gray-400" id="statusModalMessage">
+                                    <!-- Message will be set dynamically -->
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button
+                        type="button"
+                        id="confirmStatusUpdate"
+                        class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm">
+                        <!-- Button text and color will be set dynamically -->
+                    </button>
+                    <button
+                        type="button"
+                        onclick="closeStatusUpdateModal()"
+                        class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Dynamic Notification Container -->
     <div id="dynamic-notification-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
 
-    <!-- Task Status Tab JavaScript -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const tabs = document.querySelectorAll('.task-tab');
-            const contents = document.querySelectorAll('.task-content');
-
-            tabs.forEach(tab => {
-                tab.addEventListener('click', function() {
-                    const status = this.getAttribute('data-status');
-
-                    // Update tab styles
-                    tabs.forEach(t => {
-                        t.classList.remove('active', 'border-blue-500', 'text-blue-600', 'dark:text-blue-400');
-                        t.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
-                    });
-
-                    this.classList.add('active', 'border-blue-500', 'text-blue-600', 'dark:text-blue-400');
-                    this.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
-
-                    // Update content visibility
-                    contents.forEach(content => {
-                        if (content.getAttribute('data-status') === status) {
-                            content.classList.remove('hidden');
-                            content.classList.add('active');
-                        } else {
-                            content.classList.add('hidden');
-                            content.classList.remove('active');
-                        }
-                    });
-                });
-            });
-        });
-
         // Dynamic notification system
         function showNotification(type, message) {
             const container = document.getElementById('dynamic-notification-container');

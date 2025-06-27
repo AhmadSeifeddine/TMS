@@ -82,4 +82,12 @@ class Project extends Model
     {
         return $this->users()->where('role', '!=', 'admin')->get();
     }
+
+    /**
+     * Check if user is a member of this project (either creator or assigned member)
+     */
+    public function isMember(User $user): bool
+    {
+        return $this->isCreatedBy($user) || $this->hasUser($user);
+    }
 }

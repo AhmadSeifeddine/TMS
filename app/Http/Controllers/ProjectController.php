@@ -183,12 +183,12 @@ class ProjectController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Project $project)
+    public function show(Request $request, Project $project)
     {
         try {
             $this->authorize('view', $project);
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
-            if (request()->expectsJson()) {
+            if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You do not have permission to view this project.',
@@ -200,64 +200,93 @@ class ProjectController extends Controller
             return redirect()->route('projects.index');
         }
 
-        // Load project with all necessary relationships for the detail page
+        // Get the status filter from request
+        $statusFilter = $request->get('status', 'all');
+
+        // Load project with basic relationships
         $project->load([
             'creator:id,name,email,role',
-            'users:id,name,email,role',
-            'tasks' => function ($query) {
-                $query->with([
-                    'assignedUser:id,name,email,role',
-                    'creator:id,name,email,role',
-                    'taskComments' => function ($commentQuery) {
-                        $commentQuery->with('creator:id,name,email,role')
-                                   ->latest()
-                                   ->take(5); // Load latest 5 comments per task
-                    }
-                ])->orderBy('created_at', 'desc');
+            'users:id,name,email,role'
+        ]);
+
+        // Build task query based on status filter
+        $tasksQuery = $project->tasks()->with([
+            'assignedUser:id,name,email,role',
+            'creator:id,name,email,role',
+            'taskComments' => function ($commentQuery) {
+                $commentQuery->with('creator:id,name,email,role')
+                           ->latest()
+                           ->take(5); // Load latest 5 comments per task
             }
         ]);
 
-        // Organize tasks by status for timeline view
+        // Apply status filter if not 'all'
+        if ($statusFilter !== 'all') {
+            $tasksQuery->where('status', $statusFilter);
+        }
+
+        // Get filtered tasks
+        $filteredTasks = $tasksQuery->orderBy('created_at', 'desc')->get();
+
+        // Get all tasks for statistics (regardless of filter)
+        $allTasks = $project->tasks()->get();
+
+        // Organize all tasks by status for counts
         $tasksByStatus = [
-            'pending' => $project->tasks->where('status', 'pending'),
-            'in_progress' => $project->tasks->where('status', 'in_progress'),
-            'completed' => $project->tasks->where('status', 'completed')
+            'all' => $allTasks,
+            'pending' => $allTasks->where('status', 'pending'),
+            'in_progress' => $allTasks->where('status', 'in_progress'),
+            'completed' => $allTasks->where('status', 'completed')
         ];
 
         // Calculate project statistics
-        $totalTasks = $project->tasks->count();
-        $completedTasks = $project->tasks->where('status', 'completed')->count();
+        $totalTasks = $allTasks->count();
+        $completedTasks = $allTasks->where('status', 'completed')->count();
         $progressPercentage = $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100) : 0;
 
         // Get overdue tasks
-        $overdueTasks = $project->tasks->filter(function ($task) {
+        $overdueTasks = $allTasks->filter(function ($task) {
             return $task->due_date &&
                    \Carbon\Carbon::parse($task->due_date)->isPast() &&
                    $task->status !== 'completed';
         });
 
-        if (request()->expectsJson()) {
+        if ($request->expectsJson()) {
             return response()->json([
                 'success' => true,
                 'project' => $project,
-                'tasksByStatus' => $tasksByStatus,
+                'tasks' => $filteredTasks,
+                'taskCounts' => [
+                    'all' => $tasksByStatus['all']->count(),
+                    'pending' => $tasksByStatus['pending']->count(),
+                    'in_progress' => $tasksByStatus['in_progress']->count(),
+                    'completed' => $tasksByStatus['completed']->count()
+                ],
                 'statistics' => [
                     'total_tasks' => $totalTasks,
                     'completed_tasks' => $completedTasks,
                     'progress_percentage' => $progressPercentage,
                     'overdue_tasks' => $overdueTasks->count()
-                ]
+                ],
+                'currentFilter' => $statusFilter
             ]);
         }
 
         return view('dashboard.projects.show', [
             'project' => $project,
-            'tasksByStatus' => $tasksByStatus,
+            'tasks' => $filteredTasks,
+            'taskCounts' => [
+                'all' => $tasksByStatus['all']->count(),
+                'pending' => $tasksByStatus['pending']->count(),
+                'in_progress' => $tasksByStatus['in_progress']->count(),
+                'completed' => $tasksByStatus['completed']->count()
+            ],
             'totalTasks' => $totalTasks,
             'completedTasks' => $completedTasks,
             'progressPercentage' => $progressPercentage,
             'overdueTasks' => $overdueTasks,
-            'user' => request()->user()
+            'currentFilter' => $statusFilter,
+            'user' => $request->user()
         ]);
     }
 

@@ -22,10 +22,18 @@ class ProjectPolicy
      */
     public function view(User $user, Project $project): bool
     {
-        // All authenticated users can view all projects
-        // The actual actions available depend on their relationship to the project
-        // (handled in the UI layer)
-        return true;
+        // Admins can view any project
+        if ($user->role === 'admin') {
+            return true;
+        }
+
+        // Project creators can view their own projects
+        if ($user->id === $project->created_by) {
+            return true;
+        }
+
+        // Project assignees can view projects they're assigned to
+        return $project->users()->where('user_id', $user->id)->exists();
     }
 
     /**

@@ -28,9 +28,13 @@
     $totalTasks = $project->tasks->count();
     $completedTasks = $project->tasks->where('status', 'completed')->count();
     $progress = $totalTasks > 0 ? ($completedTasks / $totalTasks) * 100 : 0;
+
+    // Check if user can view the project (authorization check)
+    $canView = $user && $user->can('view', $project);
 @endphp
 
-<div class="group relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-300 overflow-hidden cursor-pointer" onclick="window.location.href='{{ route('projects.show', $project) }}'">
+<div class="group relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-300 overflow-hidden {{ $canView ? 'cursor-pointer' : 'cursor-default' }}"
+     @if($canView) onclick="window.location.href='{{ route('projects.show', $project) }}'" @endif>
     <!-- Status indicator line -->
     <div class="absolute top-0 left-0 right-0 h-1 {{ $config['dot'] }}"></div>
 
@@ -39,12 +43,22 @@
         <!-- Project Header -->
         <div class="flex items-start justify-between mb-4">
             <div class="flex-1 min-w-0">
-                <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 line-clamp-2">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 {{ $canView ? 'group-hover:text-blue-600 dark:group-hover:text-blue-400' : '' }} transition-colors duration-200 line-clamp-2">
                     {{ $project->name }}
                 </h3>
                 <p class="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed mb-3">
                     {{ Str::limit($project->description, 150) }}
                 </p>
+
+                <!-- Access restriction notice for non-authorized users -->
+                @if(!$canView)
+                    <div class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 mb-3">
+                        <svg class="w-3 h-3 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                        Access Restricted
+                    </div>
+                @endif
             </div>
 
             <!-- Status Badge -->
@@ -138,15 +152,26 @@
                             View Details
                         </button>
                     @elseif($action === 'enter')
-                        <a
-                            href="{{ route('projects.show', $project) }}"
-                            onclick="event.stopPropagation()"
-                            class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
-                            </svg>
-                            Enter Project
-                        </a>
+                        @if($canView)
+                            <a
+                                href="{{ route('projects.show', $project) }}"
+                                onclick="event.stopPropagation()"
+                                class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                                </svg>
+                                Enter Project
+                            </a>
+                        @else
+                            <button
+                                disabled
+                                class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-lg text-gray-400 bg-gray-300 cursor-not-allowed opacity-50">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                                Access Restricted
+                            </button>
+                        @endif
                     @elseif($action === 'edit')
                         <button
                             onclick="event.stopPropagation(); openEditModal({{ $project->id }})"

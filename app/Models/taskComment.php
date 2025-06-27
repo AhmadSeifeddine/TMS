@@ -10,8 +10,8 @@ class TaskComment extends Model
 
     protected $fillable = [
         'task_id',
-        'comment',
         'created_by',
+        'comment',
     ];
 
     // Relationships

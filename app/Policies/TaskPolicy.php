@@ -39,8 +39,8 @@ class TaskPolicy
      */
     public function createInProject(User $user, $project): bool
     {
-        // Only the project creator can create tasks in their project
-        return $user->id === $project->created_by;
+        // Admins can create tasks in any project, project creators can only create tasks in their own projects
+        return $user->role === 'admin' || $user->id === $project->created_by;
     }
 
     /**
@@ -48,8 +48,8 @@ class TaskPolicy
      */
     public function update(User $user, Task $task): bool
     {
-        // Only the project creator can update tasks
-        return $user->id === $task->project->created_by;
+        // Admins can update any task, project creators can only update tasks in their projects
+        return $user->role === 'admin' || $user->id === $task->project->created_by;
     }
 
     /**
@@ -57,8 +57,8 @@ class TaskPolicy
      */
     public function delete(User $user, Task $task): bool
     {
-        // Only the project creator can delete tasks
-        return $user->id === $task->project->created_by;
+        // Admins can delete any task, project creators can delete tasks in their projects
+        return $user->role === 'admin' || $user->id === $task->project->created_by;
     }
 
     /**
@@ -84,8 +84,8 @@ class TaskPolicy
      */
     public function assign(User $user, Task $task): bool
     {
-        // Only the project creator can assign/reassign tasks
-        return $user->id === $task->project->created_by;
+        // Admins can assign/reassign any task, project creators can only assign/reassign tasks in their projects
+        return $user->role === 'admin' || $user->id === $task->project->created_by;
     }
 
     /**
@@ -105,8 +105,8 @@ class TaskPolicy
      */
     public function updatePriority(User $user, Task $task): bool
     {
-        // Only the project creator can update task priority
-        return $user->id === $task->project->created_by;
+        // Admins can update any task priority, project creators can only update priority in their projects
+        return $user->role === 'admin' || $user->id === $task->project->created_by;
     }
 
     /**
@@ -114,8 +114,8 @@ class TaskPolicy
      */
     public function updateDueDate(User $user, Task $task): bool
     {
-        // Only the project creator can update due dates
-        return $user->id === $task->project->created_by;
+        // Admins can update any task due date, project creators can only update due dates in their projects
+        return $user->role === 'admin' || $user->id === $task->project->created_by;
     }
 
     /**
@@ -123,8 +123,8 @@ class TaskPolicy
      */
     public function updateDetails(User $user, Task $task): bool
     {
-        // Only the project creator can update task details
-        return $user->id === $task->project->created_by;
+        // Admins can update any task details, project creators can only update details in their projects
+        return $user->role === 'admin' || $user->id === $task->project->created_by;
     }
 
     /**
