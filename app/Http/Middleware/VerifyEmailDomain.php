@@ -16,7 +16,7 @@ class VerifyEmailDomain
     public function handle(Request $request, Closure $next): Response
     {
         if ($request->has('email')) {
-            $allowedDomains = ['@company.com']; 
+            $allowedDomains = ['@company.com'];
             $email = $request->input('email');
             $domain = '@' . substr(strrchr($email, '@'), 1);
 
