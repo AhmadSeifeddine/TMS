@@ -77,7 +77,9 @@ class ProjectController extends Controller
         // Build optimized query with eager loading to prevent N+1 queries
         $query = Project::with([
             'creator:id,name,email,role',
+            'creator.media',
             'users:id,name,email,role',
+            'users.media',
             'tasks:id,project_id,status',
         ]);
 
@@ -172,7 +174,7 @@ class ProjectController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Project created successfully!',
-                    'project' => $project->load(['creator', 'users', 'tasks'])
+                    'project' => $project->load(['creator', 'creator.media', 'users', 'users.media', 'tasks'])
                 ]);
             }
 
@@ -218,15 +220,22 @@ class ProjectController extends Controller
         // Load project with basic relationships
         $project->load([
             'creator:id,name,email,role',
-            'users:id,name,email,role'
+            'creator.media',
+            'users:id,name,email,role',
+            'users.media'
         ]);
 
         // Build task query based on status filter
         $tasksQuery = $project->tasks()->with([
             'assignedUser:id,name,email,role',
+            'assignedUser.media',
             'creator:id,name,email,role',
+            'creator.media',
             'taskComments' => function ($commentQuery) {
-                $commentQuery->with('creator:id,name,email,role')
+                $commentQuery->with([
+                    'creator:id,name,email,role',
+                    'creator.media'
+                ])
                     ->latest()
                     ->take(5); // Load latest 5 comments per task
             }
@@ -369,7 +378,7 @@ class ProjectController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Project updated successfully!',
-                    'project' => $project->load(['creator', 'users', 'tasks'])
+                    'project' => $project->load(['creator', 'creator.media', 'users', 'users.media', 'tasks'])
                 ]);
             }
 
