@@ -113,8 +113,7 @@ class ProjectController extends Controller
 
         $projects = $query->get();
 
-        // Optimize the organization method to avoid N+1 queries
-        $organizedProjects = $this->organizeProjectsByUserRelationshipOptimized($user, $projects);
+        $organizedProjects = $this->organizeProjects($user, $projects);
 
         return [
             'organizedProjects' => $organizedProjects,
@@ -622,7 +621,7 @@ class ProjectController extends Controller
     /**
      * Organize projects based on user relationship to each project - Optimized
      */
-    private function organizeProjectsByUserRelationshipOptimized(User $user, $projects): array
+    private function organizeProjects(User $user, $projects): array
     {
         $organized = [
             'ownProjects' => collect(),
@@ -665,13 +664,6 @@ class ProjectController extends Controller
             foreach ($sortOptions as $sort) {
                 Cache::forget("projects_index_{$user->id}_{$search}_{$sort}");
             }
-        }
-
-        // Clear team data caches (we don't know which projects might be affected)
-        // This is a bit aggressive but ensures consistency
-        $projectIds = Project::pluck('id');
-        foreach ($projectIds as $projectId) {
-            Cache::forget("project_team_data_{$projectId}");
         }
     }
 }
