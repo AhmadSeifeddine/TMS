@@ -8,7 +8,6 @@ use App\Traits\FlashMessages;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -27,11 +26,9 @@ class ProjectController extends Controller
         $search = $request->get('search', '');
         $sort = $request->get('sort', 'newest');
 
-        // Create cache key for this specific query
-        $cacheKey = "projects_index_{$user->id}_{$search}_{$sort}";
 
-        // Try to get from cache first (cache for 5 minutes)
-        $cachedData = $this->getProjectsData($user, $search ?? '', $sort);
+
+        $data = $this->getProjectsData($user, $search ?? '', $sort);
 
         // Handle AJAX requests for search/filter
         if ($request->expectsJson()) {
@@ -45,15 +42,15 @@ class ProjectController extends Controller
             };
 
             $html = view($viewName, [
-                'organizedProjects' => $cachedData['organizedProjects'],
+                'organizedProjects' => $data['organizedProjects'],
                 'user' => $user
             ])->render();
 
             return response()->json([
                 'success' => true,
                 'html' => $html,
-                'organizedProjects' => $cachedData['organizedProjects'],
-                'totalProjects' => $cachedData['totalProjects'],
+                'organizedProjects' => $data['organizedProjects'],
+                'totalProjects' => $data['totalProjects'],
                 'search' => $search,
                 'sort' => $sort
             ]);
@@ -61,8 +58,8 @@ class ProjectController extends Controller
 
         return view('dashboard.projects.index', [
             'user' => $user,
-            'organizedProjects' => $cachedData['organizedProjects'],
-            'totalProjects' => $cachedData['totalProjects'],
+            'organizedProjects' => $data['organizedProjects'],
+            'totalProjects' => $data['totalProjects'],
             'search' => $search,
             'sort' => $sort,
             'hasFilters' => !empty($search) || $sort !== 'newest',
@@ -70,11 +67,9 @@ class ProjectController extends Controller
     }
 
     /**
-     * Get projects data with optimized queries - show all projects but access control applied on click
      */
     private function getProjectsData(User $user, string $search, string $sort): array
     {
-        // Build optimized query with eager loading to prevent N+1 queries
         $query = Project::with([
             'creator:id,name,email,role',
             'creator.media',
@@ -122,16 +117,6 @@ class ProjectController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        $this->authorize('create', Project::class);
-
-        // TODO: Implement create form
-    }
-
-    /**
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
@@ -165,9 +150,6 @@ class ProjectController extends Controller
                 'status' => $validated['status'],
                 'created_by' => $request->user()->id,
             ]);
-
-            // Clear relevant caches
-            $this->clearProjectCaches($request->user());
 
             if ($request->expectsJson()) {
                 return response()->json([
@@ -370,9 +352,6 @@ class ProjectController extends Controller
         try {
             $project->update($validated);
 
-            // Clear relevant caches
-            $this->clearProjectCaches($request->user());
-
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => true,
@@ -421,8 +400,6 @@ class ProjectController extends Controller
             $projectName = $project->name;
             $project->delete();
 
-            // Clear relevant caches
-            $this->clearProjectCaches(request()->user());
 
             if (request()->expectsJson()) {
                 return response()->json([
@@ -546,10 +523,6 @@ class ProjectController extends Controller
                 $newAssignments = 0;
             }
 
-            // Clear team data cache
-            Cache::forget("project_team_data_{$project->id}");
-            $this->clearProjectCaches($request->user());
-
             $message = $newAssignments > 0
                 ? "Successfully assigned {$newAssignments} member(s) to the project."
                 : "All selected members were already assigned to this project.";
@@ -601,10 +574,6 @@ class ProjectController extends Controller
             // Remove the assignment
             $project->users()->detach($validated['member_id']);
 
-            // Clear team data cache
-            Cache::forget("project_team_data_{$project->id}");
-            $this->clearProjectCaches($request->user());
-
             return response()->json([
                 'success' => true,
                 'message' => "Successfully removed {$member->name} from the project."
@@ -649,21 +618,5 @@ class ProjectController extends Controller
         }
 
         return $organized;
-    }
-
-    /**
-     * Clear project-related caches
-     */
-    private function clearProjectCaches(User $user): void
-    {
-        // Clear all project index caches for this user
-        $searchTerms = ['', 'test', 'project', 'mobile', 'web', 'app']; // Common search terms
-        $sortOptions = ['newest', 'oldest', 'name_asc', 'name_desc'];
-
-        foreach ($searchTerms as $search) {
-            foreach ($sortOptions as $sort) {
-                Cache::forget("projects_index_{$user->id}_{$search}_{$sort}");
-            }
-        }
     }
 }
