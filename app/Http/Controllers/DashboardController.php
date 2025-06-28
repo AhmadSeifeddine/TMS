@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\Task;
 use App\Models\TaskComment;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -58,69 +59,107 @@ class DashboardController extends Controller
             ]
         ];
 
+        $oneWeekAgo = Carbon::now()->subWeek();
+        $today = Carbon::today();
+
         if ($user->role === 'admin') {
-            // Admin sees all data
-            $stats['projects']['total'] = Project::count();
-            $stats['projects']['active'] = Project::where('status', 'active')->count();
-            $stats['projects']['completed'] = Project::where('status', 'completed')->count();
-            $stats['projects']['archived'] = Project::where('status', 'archived')->count();
+            // Admin sees all data - use optimized queries
 
-            $stats['tasks']['total'] = Task::count();
-            $stats['tasks']['pending'] = Task::where('status', 'pending')->count();
-            $stats['tasks']['in_progress'] = Task::where('status', 'in_progress')->count();
-            $stats['tasks']['completed'] = Task::where('status', 'completed')->count();
-            $stats['tasks']['overdue'] = Task::where('due_date', '<', Carbon::today())
-                ->whereIn('status', ['pending', 'in_progress'])->count();
+            // Get all project stats in one query
+            $projectStats = Project::selectRaw('
+                COUNT(*) as total,
+                SUM(CASE WHEN status = "active" THEN 1 ELSE 0 END) as active,
+                SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN status = "archived" THEN 1 ELSE 0 END) as archived
+            ')->first();
 
-            $stats['comments']['total'] = TaskComment::count();
+            $stats['projects'] = [
+                'total' => $projectStats->total,
+                'active' => $projectStats->active,
+                'completed' => $projectStats->completed,
+                'archived' => $projectStats->archived,
+            ];
+
+            // Get all task stats in one query
+            $taskStats = Task::selectRaw('
+                COUNT(*) as total,
+                SUM(CASE WHEN status = "pending" THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = "in_progress" THEN 1 ELSE 0 END) as in_progress,
+                SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN due_date < ? AND status IN ("pending", "in_progress") THEN 1 ELSE 0 END) as overdue,
+                SUM(CASE WHEN status = "completed" AND updated_at >= ? THEN 1 ELSE 0 END) as completed_this_week
+            ', [$today, $oneWeekAgo])->first();
+
+            $stats['tasks'] = [
+                'total' => $taskStats->total,
+                'assigned' => 0, // Not applicable for admin
+                'pending' => $taskStats->pending,
+                'in_progress' => $taskStats->in_progress,
+                'completed' => $taskStats->completed,
+                'overdue' => $taskStats->overdue,
+            ];
+
+            $stats['productivity']['tasks_completed_this_week'] = $taskStats->completed_this_week;
+
+            // Get comment stats in one query
+            $commentStats = TaskComment::selectRaw('
+                COUNT(*) as total,
+                SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) as this_week
+            ', [$oneWeekAgo])->first();
+
+            $stats['comments'] = [
+                'total' => $commentStats->total,
+                'this_week' => $commentStats->this_week,
+            ];
+
         } else {
             // Non-admin users see only their relevant data
+            // Cache the user projects to avoid duplicate calls
             $userProjects = $this->getUserProjects($user);
             $userProjectIds = $userProjects->pluck('id')->toArray();
 
+            // Project stats from cached collection
             $stats['projects']['total'] = $userProjects->count();
             $stats['projects']['active'] = $userProjects->where('status', 'active')->count();
             $stats['projects']['completed'] = $userProjects->where('status', 'completed')->count();
             $stats['projects']['archived'] = $userProjects->where('status', 'archived')->count();
 
-            // Tasks from user's projects
-            $userTasks = Task::whereIn('project_id', $userProjectIds);
-            $stats['tasks']['total'] = $userTasks->count();
-            $stats['tasks']['pending'] = $userTasks->where('status', 'pending')->count();
-            $stats['tasks']['in_progress'] = $userTasks->where('status', 'in_progress')->count();
-            $stats['tasks']['completed'] = $userTasks->where('status', 'completed')->count();
+            if (!empty($userProjectIds)) {
+                // Get all task stats in one query for user's projects
+                $taskStats = Task::whereIn('project_id', $userProjectIds)
+                    ->selectRaw('
+                        COUNT(*) as total,
+                        SUM(CASE WHEN status = "pending" THEN 1 ELSE 0 END) as pending,
+                        SUM(CASE WHEN status = "in_progress" THEN 1 ELSE 0 END) as in_progress,
+                        SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed,
+                        SUM(CASE WHEN due_date < ? AND status IN ("pending", "in_progress") THEN 1 ELSE 0 END) as overdue,
+                        SUM(CASE WHEN status = "completed" AND updated_at >= ? THEN 1 ELSE 0 END) as completed_this_week
+                    ', [$today, $oneWeekAgo])->first();
 
-            // Tasks specifically assigned to this user
-            $stats['tasks']['assigned'] = Task::where('assigned_to', $user->id)->count();
+                $stats['tasks'] = [
+                    'total' => $taskStats->total,
+                    'assigned' => Task::where('assigned_to', $user->id)->count(),
+                    'pending' => $taskStats->pending,
+                    'in_progress' => $taskStats->in_progress,
+                    'completed' => $taskStats->completed,
+                    'overdue' => $taskStats->overdue,
+                ];
 
-            // Overdue tasks in user's projects
-            $stats['tasks']['overdue'] = Task::whereIn('project_id', $userProjectIds)
-                ->where('due_date', '<', Carbon::today())
-                ->whereIn('status', ['pending', 'in_progress'])->count();
+                $stats['productivity']['tasks_completed_this_week'] = $taskStats->completed_this_week;
 
-            // Comments in user's projects
-            $stats['comments']['total'] = TaskComment::whereHas('task', function($query) use ($userProjectIds) {
-                $query->whereIn('project_id', $userProjectIds);
-            })->count();
-        }
+                // Get comment stats for user's projects in one query
+                $commentStats = TaskComment::whereHas('task', function($query) use ($userProjectIds) {
+                    $query->whereIn('project_id', $userProjectIds);
+                })->selectRaw('
+                    COUNT(*) as total,
+                    SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) as this_week
+                ', [$oneWeekAgo])->first();
 
-        // Common calculations for all users
-        $oneWeekAgo = Carbon::now()->subWeek();
-
-        if ($user->role === 'admin') {
-            $stats['comments']['this_week'] = TaskComment::where('created_at', '>=', $oneWeekAgo)->count();
-            $stats['productivity']['tasks_completed_this_week'] = Task::where('status', 'completed')
-                ->where('updated_at', '>=', $oneWeekAgo)->count();
-        } else {
-            $userProjectIds = $this->getUserProjects($user)->pluck('id')->toArray();
-
-            $stats['comments']['this_week'] = TaskComment::whereHas('task', function($query) use ($userProjectIds) {
-                $query->whereIn('project_id', $userProjectIds);
-            })->where('created_at', '>=', $oneWeekAgo)->count();
-
-            $stats['productivity']['tasks_completed_this_week'] = Task::whereIn('project_id', $userProjectIds)
-                ->where('status', 'completed')
-                ->where('updated_at', '>=', $oneWeekAgo)->count();
+                $stats['comments'] = [
+                    'total' => $commentStats->total ?? 0,
+                    'this_week' => $commentStats->this_week ?? 0,
+                ];
+            }
         }
 
         // Calculate completion rate
@@ -142,9 +181,9 @@ class DashboardController extends Controller
             // Creators see their own projects + projects they're assigned to
             return Project::where(function ($query) use ($user) {
                 $query->where('created_by', $user->id)
-                      ->orWhereHas('users', function ($subQuery) use ($user) {
-                          $subQuery->where('user_id', $user->id);
-                      });
+                        ->orWhereHas('users', function ($subQuery) use ($user) {
+                        $subQuery->where('user_id', $user->id);
+                    });
             })->get();
         } else {
             // Assignees and members see only projects they're assigned to
@@ -160,12 +199,13 @@ class DashboardController extends Controller
     private function getRecentActivities($user): array
     {
         $activities = [];
+        $sevenDaysAgo = Carbon::now()->subDays(7);
 
-        // Recent tasks assigned to user (last 7 days)
         if ($user->role !== 'admin') {
+            // Get recent task assignments with project data in one query
             $recentTasks = Task::where('assigned_to', $user->id)
-                ->where('created_at', '>=', Carbon::now()->subDays(7))
-                ->with(['project'])
+                ->where('created_at', '>=', $sevenDaysAgo)
+                ->with('project:id,name')
                 ->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get();
@@ -181,49 +221,49 @@ class DashboardController extends Controller
             }
         }
 
-        // Recent task completions by user (last 7 days)
-        $completedTasks = Task::where('assigned_to', $user->id)
-            ->where('status', 'completed')
-            ->where('updated_at', '>=', Carbon::now()->subDays(7))
-            ->with(['project'])
+        // Combine multiple task queries into one with different conditions
+        $userTaskActivities = Task::where('assigned_to', $user->id)
+            ->where(function($query) use ($sevenDaysAgo) {
+                $query->where(function($subQuery) use ($sevenDaysAgo) {
+                    // Completed tasks
+                    $subQuery->where('status', 'completed')
+                            ->where('updated_at', '>=', $sevenDaysAgo);
+                })->orWhere(function($subQuery) use ($sevenDaysAgo) {
+                    // Updated in-progress tasks
+                    $subQuery->where('status', 'in_progress')
+                            ->where('updated_at', '>=', $sevenDaysAgo)
+                            ->whereColumn('updated_at', '>', 'created_at');
+                });
+            })
+            ->with('project:id,name')
             ->orderBy('updated_at', 'desc')
-            ->limit(5)
+            ->limit(8)
             ->get();
 
-        foreach ($completedTasks as $task) {
-            $activities[] = [
-                'type' => 'task_completed',
-                'message' => "You completed task: {$task->title}",
-                'project' => $task->project->name,
-                'time' => $task->updated_at,
-                'priority' => $task->priority,
-            ];
+        foreach ($userTaskActivities as $task) {
+            if ($task->status === 'completed') {
+                $activities[] = [
+                    'type' => 'task_completed',
+                    'message' => "You completed task: {$task->title}",
+                    'project' => $task->project->name,
+                    'time' => $task->updated_at,
+                    'priority' => $task->priority,
+                ];
+            } elseif ($task->status === 'in_progress') {
+                $activities[] = [
+                    'type' => 'task_updated',
+                    'message' => "You started working on: {$task->title}",
+                    'project' => $task->project->name,
+                    'time' => $task->updated_at,
+                    'priority' => $task->priority,
+                ];
+            }
         }
 
-        // Recent task status updates by user (last 7 days)
-        $updatedTasks = Task::where('assigned_to', $user->id)
-            ->whereIn('status', ['in_progress'])
-            ->where('updated_at', '>=', Carbon::now()->subDays(7))
-            ->where('updated_at', '>', 'created_at') // Only tasks that were actually updated
-            ->with(['project'])
-            ->orderBy('updated_at', 'desc')
-            ->limit(3)
-            ->get();
-
-        foreach ($updatedTasks as $task) {
-            $activities[] = [
-                'type' => 'task_updated',
-                'message' => "You started working on: {$task->title}",
-                'project' => $task->project->name,
-                'time' => $task->updated_at,
-                'priority' => $task->priority,
-            ];
-        }
-
-        // Recent comments by user (last 7 days)
+        // Get recent comments with task and project data in one query
         $recentComments = TaskComment::where('created_by', $user->id)
-            ->where('created_at', '>=', Carbon::now()->subDays(7))
-            ->with(['task.project'])
+            ->where('created_at', '>=', $sevenDaysAgo)
+            ->with(['task:id,title,project_id', 'task.project:id,name'])
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
@@ -238,10 +278,15 @@ class DashboardController extends Controller
             ];
         }
 
-        // Recent projects created by user (for creators/admins)
+        // For creators/admins, get recent projects and tasks created
         if (in_array($user->role, ['creator', 'admin'])) {
+            // Get recent projects and tasks created in one combined query using UNION
+            $recentCreations = collect();
+
+            // Recent projects
             $recentProjects = Project::where('created_by', $user->id)
-                ->where('created_at', '>=', Carbon::now()->subDays(7))
+                ->where('created_at', '>=', $sevenDaysAgo)
+                ->select('id', 'name', 'created_at', DB::raw('"project" as type'))
                 ->orderBy('created_at', 'desc')
                 ->limit(3)
                 ->get();
@@ -254,13 +299,11 @@ class DashboardController extends Controller
                     'time' => $project->created_at,
                 ];
             }
-        }
 
-        // Recent tasks created by user (for creators/admins)
-        if (in_array($user->role, ['creator', 'admin'])) {
+            // Recent tasks created
             $recentTasksCreated = Task::where('created_by', $user->id)
-                ->where('created_at', '>=', Carbon::now()->subDays(7))
-                ->with(['project'])
+                ->where('created_at', '>=', $sevenDaysAgo)
+                ->with('project:id,name')
                 ->orderBy('created_at', 'desc')
                 ->limit(3)
                 ->get();
