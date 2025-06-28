@@ -67,50 +67,7 @@ class SendTaskAssignmentNotification implements ShouldQueue
      */
     public function handle(): void
     {
-        try {
-            // Check if task and users still exist
-            if (!$this->task->exists || !$this->assignedUser->exists || !$this->assignedBy->exists) {
-                Log::warning('Task assignment notification skipped - entities no longer exist', [
-                    'task_id' => $this->task->id,
-                    'assigned_user_id' => $this->assignedUser->id,
-                    'assigned_by_id' => $this->assignedBy->id
-                ]);
-                return;
-            }
-
-            // Check if task is still assigned to this user
-            if ($this->task->assigned_to !== $this->assignedUser->id) {
-                Log::info('Task assignment notification skipped - task no longer assigned to this user', [
-                    'task_id' => $this->task->id,
-                    'original_assigned_user_id' => $this->assignedUser->id,
-                    'current_assigned_user_id' => $this->task->assigned_to
-                ]);
-                return;
-            }
-
-            $this->sendNotificationEmail();
-
-            Log::info('Task assignment notification sent successfully', [
-                'task_id' => $this->task->id,
-                'task_title' => $this->task->title,
-                'assigned_user' => $this->assignedUser->email,
-                'assigned_by' => $this->assignedBy->email,
-                'attempt' => $this->attempts()
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Task assignment notification failed', [
-                'task_id' => $this->task->id,
-                'assigned_user' => $this->assignedUser->email,
-                'assigned_by' => $this->assignedBy->email,
-                'attempt' => $this->attempts(),
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            // Re-throw the exception to trigger retry logic
-            throw $e;
-        }
+        $this->sendNotificationEmail();
     }
 
         /**
@@ -118,53 +75,13 @@ class SendTaskAssignmentNotification implements ShouldQueue
      */
     private function sendNotificationEmail(): void
     {
-        // Create and send the mail instance
         $mail = new TaskAssignmentMail($this->task, $this->assignedUser, $this->assignedBy);
 
-        // Send the email - this will be captured by Telescope
         Mail::send($mail);
-
-        // Log the email details for debugging
-        Log::info('Task assignment notification email sent', [
-            'task_id' => $this->task->id,
-            'task_title' => $this->task->title,
-            'project_name' => $this->task->project->name,
-            'assigned_user' => $this->assignedUser->email,
-            'assigned_user_name' => $this->assignedUser->name,
-            'assigned_by' => $this->assignedBy->email,
-            'assigned_by_name' => $this->assignedBy->name,
-            'priority' => $this->task->priority,
-            'due_date' => $this->task->due_date?->format('Y-m-d'),
-            'subject' => "New Task Assigned: {$this->task->title}",
-            'sent_at' => now()
-        ]);
     }
 
-    /**
-     * Handle a job failure.
-     */
-    public function failed(\Throwable $exception): void
-    {
-        Log::error('Task assignment notification job failed permanently', [
-            'task_id' => $this->task->id,
-            'task_title' => $this->task->title,
-            'assigned_user' => $this->assignedUser->email,
-            'assigned_by' => $this->assignedBy->email,
-            'attempts' => $this->attempts(),
-            'exception' => $exception->getMessage(),
-            'trace' => $exception->getTraceAsString(),
-            'failed_at' => now()
-        ]);
-
-        // You could also send a notification to administrators about the failure
-        // or implement other failure handling logic here
-    }
-
-    /**
-     * Determine the time at which the job should timeout.
-     */
     public function retryUntil(): Carbon
     {
-        return now()->addMinutes(10); // Stop retrying after 10 minutes
+        return now()->addMinutes(10);
     }
 }

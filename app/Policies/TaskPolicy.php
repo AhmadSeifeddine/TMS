@@ -142,9 +142,9 @@ class TaskPolicy
                     // Creators can see tasks from their own projects + projects they're assigned to
                     $projectQuery->where(function ($q) use ($user) {
                         $q->where('created_by', $user->id)
-                          ->orWhereHas('users', function ($subQuery) use ($user) {
-                              $subQuery->where('user_id', $user->id);
-                          });
+                            ->orWhereHas('users', function ($subQuery) use ($user) {
+                            $subQuery->where('user_id', $user->id);
+                        });
                     });
                 } else {
                     // Assignees and members can only see tasks from projects they're assigned to

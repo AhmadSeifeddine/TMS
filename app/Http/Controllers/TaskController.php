@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Log;
+use App\Models\TaskComment;
 
 class TaskController extends Controller
 {
@@ -41,7 +42,6 @@ class TaskController extends Controller
             // Get total comments count
             $totalComments = $task->taskComments()->count();
 
-            // Render the comments HTML server-side
             $commentsHtml = view('components.partials.comment-list', [
                 'comments' => $comments
             ])->render();
@@ -122,7 +122,6 @@ class TaskController extends Controller
             $projectId = $task->project_id;
             $taskTitle = $task->title;
 
-            // Delete the task (this will also cascade delete related comments due to foreign key constraints)
             $task->delete();
 
             if ($request->expectsJson()) {
@@ -562,7 +561,7 @@ class TaskController extends Controller
             // Find the task
             $task = Task::findOrFail($validated['task_id']);
 
-                        // Check if user can comment on this task (must be project member or admin)
+            // Check if user can comment on this task (must be project member or admin)
             $user = $request->user();
 
             if (!($user->role === 'admin' || $task->project->isMember($user))) {
@@ -574,7 +573,7 @@ class TaskController extends Controller
             }
 
             // Create the comment
-            $comment = \App\Models\TaskComment::create([
+            $comment = TaskComment::create([
                 'task_id' => $task->id,
                 'created_by' => $user->id,
                 'comment' => trim($validated['comment'])

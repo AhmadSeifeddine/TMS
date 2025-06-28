@@ -59,7 +59,7 @@ class TaskCommentPolicy
     {
         // Users can delete their own comments OR project creators can delete any comment on their project tasks
         return $user->id === $taskComment->created_by ||
-               $user->id === $taskComment->task->project->created_by;
+            $user->id === $taskComment->task->project->created_by;
     }
 
     /**
@@ -69,7 +69,7 @@ class TaskCommentPolicy
     {
         // Users can restore their own comments OR project creators can restore any comment on their project tasks
         return $user->id === $taskComment->created_by ||
-               $user->id === $taskComment->task->project->created_by;
+            $user->id === $taskComment->task->project->created_by;
     }
 
     /**
