@@ -3,13 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Gallery;
+use App\Helpers\GalleryZipHelper;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
-use App\Jobs\CreateGalleryZip;
 
 class GalleryController extends Controller
 {
@@ -65,27 +63,21 @@ class GalleryController extends Controller
         }
     }
 
-        /**
+    /**
      * Create gallery zip
      */
     public function createZip(): RedirectResponse
     {
-        $galleries = Gallery::with('media')->get();
+        $result = GalleryZipHelper::createZip();
 
-        if ($galleries->isEmpty()) {
+        if (!$result['success']) {
             return redirect()->route('gallery.index')
-                        ->with('error', 'No images found to zip.');
+                        ->with('error', $result['message']);
         }
-
-        $zipFileName = 'gallery-' . now()->format('Y-m-d-H-i-s') . '.zip';
-        $jobId = Str::uuid()->toString();
-
-        // Dispatch the job
-        CreateGalleryZip::dispatch($zipFileName, $jobId);
 
         return redirect()->route('gallery.index')
                     ->with('success', 'Zipping...')
-                    ->with('job_id', $jobId);
+                    ->with('job_id', $result['data']['job_id']);
     }
 
     /**
@@ -93,15 +85,8 @@ class GalleryController extends Controller
      */
     public function checkZipStatus($jobId)
     {
-        $status = Cache::get("zip_job_{$jobId}");
-
-        if (!$status) {
-            return response()->json([
-                'status' => 'processing'
-            ]);
-        }
-
-        return response()->json($status);
+        $result = GalleryZipHelper::checkZipStatus($jobId);
+        return response()->json($result['data']);
     }
 
     /**
@@ -109,13 +94,12 @@ class GalleryController extends Controller
      */
     public function downloadZip($filename)
     {
-        $filePath = 'gallery-zips/' . $filename;
+        $result = GalleryZipHelper::getZipDownloadInfo($filename);
 
-        if (!Storage::disk('local')->exists($filePath)) {
-            abort(404, 'Zip file not found or still being created.');
+        if (!$result['success']) {
+            abort(404, $result['message']);
         }
 
-        $fullPath = Storage::disk('local')->path($filePath);
-        return response()->download($fullPath);
+        return response()->download($result['data']['path']);
     }
 }

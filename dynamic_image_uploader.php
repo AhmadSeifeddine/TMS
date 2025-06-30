@@ -50,7 +50,7 @@ const CONFIG = [
     'COLLECTION_NAME' => 'gallery',
 
     // Number of images to download
-    'IMAGE_COUNT' => 1000,
+    'IMAGE_COUNT' => 5,
 
     // Image source: 'picsum' or 'placeholder'
     'IMAGE_SOURCE' => 'picsum',
