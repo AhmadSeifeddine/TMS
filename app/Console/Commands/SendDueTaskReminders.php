@@ -4,9 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\Task;
-use App\Models\User;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Carbon\Carbon;
 
 class SendDueTaskReminders extends Command
@@ -46,33 +44,19 @@ class SendDueTaskReminders extends Command
         }
 
         $remindersSent = 0;
-        $errors = 0;
 
         foreach ($dueTasks as $task) {
-            try {
+
                 $this->sendTaskReminder($task);
                 $remindersSent++;
                 $this->line("✓ Reminder sent for task: {$task->title} to {$task->assignedUser->email}");
-            } catch (\Exception $e) {
-                $errors++;
-                $this->error("✗ Failed to send reminder for task: {$task->title}");
-                Log::error('Task reminder failed', [
-                    'task_id' => $task->id,
-                    'task_title' => $task->title,
-                    'assigned_user' => $task->assignedUser?->email,
-                    'error' => $e->getMessage()
-                ]);
-            }
+
         }
 
         $this->newLine();
         $this->info("Task reminder summary:");
         $this->info("- Total tasks due today: {$dueTasks->count()}");
         $this->info("- Reminders sent successfully: {$remindersSent}");
-
-        if ($errors > 0) {
-            $this->warn("- Failed reminders: {$errors}");
-        }
 
         return Command::SUCCESS;
     }
@@ -85,7 +69,6 @@ class SendDueTaskReminders extends Command
         $user = $task->assignedUser;
         $project = $task->project;
 
-        // Simulate sending email by logging the email content
         $emailContent = [
             'to' => $user->email,
             'subject' => "Task Due Today: {$task->title}",
@@ -109,7 +92,6 @@ Task Management System
             "
         ];
 
-        // Log the email instead of actually sending it
         Log::info('Task due reminder email sent', [
             'task_id' => $task->id,
             'task_title' => $task->title,
