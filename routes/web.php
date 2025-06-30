@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\TaskController;
@@ -33,6 +34,14 @@ Route::middleware('auth')->group(function () {
     Route::delete('tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
     Route::get('tasks/{task}/comments', [TaskController::class, 'getComments'])->name('tasks.comments');
     Route::post('task-comments', [TaskController::class, 'storeComment'])->name('task-comments.store');
+
+    // Gallery routes
+    Route::get('gallery', [GalleryController::class, 'index'])->name('gallery.index');
+    Route::post('gallery', [GalleryController::class, 'store'])->name('gallery.store');
+    Route::delete('gallery/{gallery}', [GalleryController::class, 'destroy'])->name('gallery.destroy');
+    Route::post('gallery/create-zip', [GalleryController::class, 'createZip'])->name('gallery.create-zip');
+    Route::get('gallery/zip-status/{jobId}', [GalleryController::class, 'checkZipStatus'])->name('gallery.zip-status');
+    Route::get('gallery/download-zip/{filename}', [GalleryController::class, 'downloadZip'])->name('gallery.download-zip');
 });
 
 require __DIR__.'/auth.php';
